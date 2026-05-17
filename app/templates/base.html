@@ -18,39 +18,52 @@
 </head>
 <body>
     
-    <!-- NAVBAR -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <!-- Logo -->
-            <a href="{{ url_for('main.index') }}" class="nav-logo">
-                <i class="fas fa-cloud"></i>
-                <span>CloudVault</span>
-            </a>
-            
-            <!-- Nav links -->
-            <div class="nav-links">
-                {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('files.dashboard') }}" class="nav-link">
-                        <i class="fas fa-th-large"></i> Dashboard
-                    </a>
-                    <a href="{{ url_for('profile.profile_page') }}" class="nav-link">
-                        <i class="fas fa-user"></i> {{ current_user.username }}
-                    </a>
-                    <a href="{{ url_for('auth.logout') }}" class="nav-link btn-outline">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </a>
-                {% else %}
-                    <a href="{{ url_for('auth.login') }}" class="nav-link">Login</a>
-                    <a href="{{ url_for('auth.signup') }}" class="nav-link btn-primary">Get Started</a>
-                {% endif %}
-                
-                <!-- Dark mode toggle -->
-                <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
-                    <i class="fas fa-moon" id="themeIcon"></i>
-                </button>
-            </div>
+<nav class="navbar">
+    <div class="nav-container">
+        <!-- Logo -->
+        <a href="{{ url_for('main.index') }}" class="nav-logo">
+            <i class="fas fa-cloud"></i>
+            <span>CloudVault</span>
+        </a>
+
+        <!-- Mobile Hamburger (shows on small screens) -->
+        <button class="nav-hamburger" id="navHamburger">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Nav links -->
+        <div class="nav-links" id="navLinks">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('files.dashboard') }}" class="nav-link">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('profile.profile_page') }}" class="nav-link">
+                    <i class="fas fa-user"></i>
+                    <span>{{ current_user.username }}</span>
+                </a>
+                <a href="{{ url_for('auth.logout') }}" class="nav-link btn-outline">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="nav-link">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Login</span>
+                </a>
+                <a href="{{ url_for('auth.signup') }}" class="nav-link btn-primary">
+                    <i class="fas fa-rocket"></i>
+                    <span>Get Started</span>
+                </a>
+            {% endif %}
+
+            <!-- Dark mode toggle -->
+            <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
         </div>
-    </nav>
+    </div>
+</nav>
     
     <!-- FLASH MESSAGES -->
     <!-- Flash messages are one-time notifications from Flask (success/error/info) -->

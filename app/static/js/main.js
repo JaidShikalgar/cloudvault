@@ -1,5 +1,6 @@
+// -*- coding: utf-8 -*-
 // app/static/js/main.js
-// CloudVault - Complete JavaScript v2
+// CloudVault — Complete JavaScript
 
 // ═══════════════════════════════════════
 // DARK MODE
@@ -20,21 +21,54 @@ if (themeToggle) {
         updateThemeIcon(next);
     });
 }
+
 function updateThemeIcon(theme) {
     if (!themeIcon) return;
     themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
 }
 
 // ═══════════════════════════════════════
+// ON PAGE LOAD
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+
+    // Animate storage bar
+    const fill = document.querySelector('.storage-fill');
+    if (fill) {
+        const pct = fill.getAttribute('data-percent') || '0';
+        setTimeout(() => { fill.style.width = pct + '%'; }, 400);
+    }
+
+    // Animate profile storage bar
+    const fillLarge = document.querySelector('.storage-fill-large');
+    if (fillLarge) {
+        const pct = fillLarge.getAttribute('data-percent') || '0';
+        setTimeout(() => { fillLarge.style.width = pct + '%'; }, 400);
+    }
+
+    // Restore saved view mode
+    const savedView = localStorage.getItem('cv_view') || 'grid';
+    if (savedView === 'list') setView('list');
+
+    // Load image thumbnails
+    loadThumbnails();
+
+    // Animate file cards
+    document.querySelectorAll('.file-card').forEach((card, i) => {
+        card.style.animationDelay = `${i * 0.05}s`;
+    });
+});
+
+// ═══════════════════════════════════════
 // FLASH MESSAGES — auto dismiss
 // ═══════════════════════════════════════
-document.querySelectorAll('.flash').forEach(flash => {
+document.querySelectorAll('.flash').forEach((flash, i) => {
     setTimeout(() => {
         flash.style.opacity = '0';
         flash.style.transform = 'translateX(110%)';
         flash.style.transition = 'all 0.4s ease';
         setTimeout(() => flash.remove(), 420);
-    }, 5000);
+    }, 4000 + (i * 500));
 });
 
 // ═══════════════════════════════════════
@@ -63,7 +97,7 @@ function confirmDelete(filename) {
 // ═══════════════════════════════════════
 // SORT FILES
 // ═══════════════════════════════════════
-function sortFiles(value) {
+function changeSort(value) {
     const url = new URL(window.location.href);
     url.searchParams.set('sort', value);
     window.location.href = url.toString();
@@ -91,21 +125,8 @@ function setView(type) {
     }
 }
 
-// Restore saved view on load
-document.addEventListener('DOMContentLoaded', () => {
-    const savedView = localStorage.getItem('cv_view') || 'grid';
-    if (savedView === 'list') setView('list');
-
-    // Animate storage bar
-    const fill = document.querySelector('.storage-fill');
-    if (fill) {
-        const pct = fill.getAttribute('data-percent') || '0';
-        setTimeout(() => { fill.style.width = pct + '%'; }, 400);
-    }
-});
-
 // ═══════════════════════════════════════
-// FILE UPLOAD — with progress simulation
+// FILE UPLOAD — with progress bar
 // ═══════════════════════════════════════
 function handleFileSelect(input) {
     if (!input.files.length) return;
@@ -117,25 +138,19 @@ function handleFileSelect(input) {
     if (progress) {
         progress.classList.remove('hidden');
         let pct = 0;
-        const names = Array.from(input.files).map(f => f.name).join(', ');
-        text.textContent = `Uploading ${input.files.length} file(s)...`;
+        if (text) text.textContent = `Uploading ${input.files.length} file(s)...`;
 
         const interval = setInterval(() => {
             pct = Math.min(pct + Math.random() * 15, 90);
             if (fill) fill.style.width = pct + '%';
         }, 200);
 
-        // Actually submit the form
-        const form = document.getElementById('uploadForm');
-        if (form) {
-            // Small delay so progress bar is visible
-            setTimeout(() => {
-                clearInterval(interval);
-                if (fill) fill.style.width = '100%';
-                if (text) text.textContent = 'Processing...';
-                form.submit();
-            }, 800);
-        }
+        setTimeout(() => {
+            clearInterval(interval);
+            if (fill) fill.style.width = '100%';
+            if (text) text.textContent = 'Processing...';
+            document.getElementById('uploadForm')?.submit();
+        }, 800);
     } else {
         document.getElementById('uploadForm')?.submit();
     }
@@ -173,6 +188,99 @@ if (dropZone && fileInput) {
 }
 
 // ═══════════════════════════════════════
+// IMAGE THUMBNAILS
+// ═══════════════════════════════════════
+async function loadThumbnails() {
+    const thumbImgs = document.querySelectorAll('.thumb-img[data-file-id]');
+    for (const img of thumbImgs) {
+        const fileId = img.getAttribute('data-file-id');
+        try {
+            const res  = await fetch(`/preview/${fileId}`);
+            const data = await res.json();
+            if (data.url) {
+                img.src = data.url;
+                img.style.display = 'block';
+                // Hide fallback icon
+                const fallback = img.nextElementSibling;
+                if (fallback) fallback.style.display = 'none';
+            } else {
+                throw new Error('No URL');
+            }
+        } catch (e) {
+            // Show emoji fallback icon
+            img.style.display = 'none';
+            const fallback = img.nextElementSibling;
+            if (fallback) fallback.style.display = 'flex';
+        }
+    }
+}
+
+// ═══════════════════════════════════════
+// IMAGE PREVIEW MODAL
+// ═══════════════════════════════════════
+const imageTypes = ['jpg','jpeg','png','gif','webp','svg'];
+
+function previewOrDownload(fileId, fileType, filename) {
+    if (imageTypes.includes(fileType.toLowerCase())) {
+        openPreview(fileId, filename);
+    } else {
+        window.location.href = `/download/${fileId}`;
+    }
+}
+
+async function openPreview(fileId, filename) {
+    const modal     = document.getElementById('previewModal');
+    const img       = document.getElementById('previewImg');
+    const loading   = document.getElementById('previewLoading');
+    const noSupport = document.getElementById('previewNoSupport');
+    const dlBtn     = document.getElementById('previewDownloadBtn');
+    const fnLabel   = document.getElementById('previewFilename');
+
+    if (!modal) return;
+
+    // Reset state
+    if (fnLabel)   fnLabel.textContent = filename;
+    if (dlBtn)     dlBtn.href = `/download/${fileId}`;
+    if (img)       img.classList.add('hidden');
+    if (noSupport) noSupport.classList.add('hidden');
+    if (loading)   loading.classList.remove('hidden');
+    modal.classList.remove('hidden');
+
+    try {
+        const res  = await fetch(`/preview/${fileId}`);
+        const data = await res.json();
+
+        if (loading) loading.classList.add('hidden');
+
+        if (data.url && img) {
+            img.src = data.url;
+            img.onload = () => img.classList.remove('hidden');
+            img.onerror = () => {
+                img.classList.add('hidden');
+                if (noSupport) noSupport.classList.remove('hidden');
+            };
+        } else {
+            if (noSupport) noSupport.classList.remove('hidden');
+        }
+    } catch (e) {
+        if (loading)   loading.classList.add('hidden');
+        if (noSupport) noSupport.classList.remove('hidden');
+    }
+}
+
+function closePreview() {
+    const modal = document.getElementById('previewModal');
+    const img   = document.getElementById('previewImg');
+    if (modal) modal.classList.add('hidden');
+    if (img)   img.src = '';
+}
+
+// Click outside to close preview
+document.getElementById('previewModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closePreview();
+});
+
+// ═══════════════════════════════════════
 // SHARE TOGGLE
 // ═══════════════════════════════════════
 async function toggleShare(fileId, button) {
@@ -191,13 +299,13 @@ async function toggleShare(fileId, button) {
         const inp  = box?.querySelector('.share-input');
 
         if (data.shared) {
-            button.classList.add('active');
+            button.classList.add('shared-active');
             button.title = 'Unshare';
             if (inp) inp.value = data.share_url;
             if (box) box.classList.remove('hidden');
             showShareModal(data.share_url);
         } else {
-            button.classList.remove('active');
+            button.classList.remove('shared-active');
             button.title = 'Share';
             if (inp) inp.value = '';
             if (box) box.classList.add('hidden');
@@ -242,7 +350,7 @@ function copyText(text) {
 }
 
 // ═══════════════════════════════════════
-// MODAL
+// SHARE MODAL
 // ═══════════════════════════════════════
 function showShareModal(url) {
     const modal = document.getElementById('shareModal');
@@ -251,11 +359,16 @@ function showShareModal(url) {
     if (inp) inp.value = url;
     modal.classList.remove('hidden');
 }
-function closeModal() {
+
+function closeShareModal() {
     document.getElementById('shareModal')?.classList.add('hidden');
 }
+
+// Also support old closeModal() name
+function closeModal() { closeShareModal(); }
+
 document.getElementById('shareModal')?.addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
+    if (e.target === this) closeShareModal();
 });
 
 // ═══════════════════════════════════════
@@ -271,8 +384,15 @@ function showToast(message, type = 'success') {
 
     const toast = document.createElement('div');
     toast.className = `flash ${cls}`;
-    toast.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;';
-    toast.innerHTML = `<i class="fas fa-${icon}"></i>${message}`;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+        max-width: 320px;
+    `;
+    toast.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
     document.body.appendChild(toast);
 
     setTimeout(() => {
@@ -281,3 +401,81 @@ function showToast(message, type = 'success') {
         setTimeout(() => toast.remove(), 420);
     }, 3000);
 }
+
+// ═══════════════════════════════════════
+// MOBILE SIDEBAR TOGGLE
+// ═══════════════════════════════════════
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar) return;
+
+    const isOpen = sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('open', isOpen);
+
+    // Prevent body scroll when sidebar is open
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+}
+
+// ═══════════════════════════════════════
+// NAVBAR HAMBURGER TOGGLE
+// ═══════════════════════════════════════
+const navHamburger = document.getElementById('navHamburger');
+const navLinksEl   = document.getElementById('navLinks');
+
+if (navHamburger && navLinksEl) {
+    navHamburger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navLinksEl.classList.toggle('open');
+        const icon = navHamburger.querySelector('i');
+        if (icon) {
+            icon.className = navLinksEl.classList.contains('open')
+                ? 'fas fa-times'
+                : 'fas fa-bars';
+        }
+    });
+
+    // Close nav when a link is clicked
+    navLinksEl.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            navLinksEl.classList.remove('open');
+            const icon = navHamburger.querySelector('i');
+            if (icon) icon.className = 'fas fa-bars';
+        });
+    });
+
+    // Close nav when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!navLinksEl.contains(e.target) && !navHamburger.contains(e.target)) {
+            navLinksEl.classList.remove('open');
+            const icon = navHamburger.querySelector('i');
+            if (icon) icon.className = 'fas fa-bars';
+        }
+    });
+}
+
+// ═══════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+    // Escape closes all modals
+    if (e.key === 'Escape') {
+        closePreview();
+        closeShareModal();
+        // Close mobile sidebar too
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (sidebar?.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            overlay?.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+    }
+
+    // Press '/' to focus search box
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT'
+                      && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        document.getElementById('searchInput')?.focus();
+    }
+});
