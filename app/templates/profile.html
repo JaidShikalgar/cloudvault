@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% block title %}Profile — CloudVault{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+
+    <!-- Profile Hero -->
+    <div class="profile-hero">
+        <div class="profile-hero-bg">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+        </div>
+
+        <div class="profile-hero-content">
+            <!-- Avatar -->
+            <div class="profile-avatar-large">
+                {{ current_user.username[0].upper() }}
+            </div>
+
+            <!-- Name & Email -->
+            <div class="profile-identity">
+                <h1>{{ current_user.username }}</h1>
+                <p class="profile-email">
+                    <i class="fas fa-envelope"></i>
+                    {{ current_user.email }}
+                </p>
+                <p class="profile-joined">
+                    <i class="fas fa-calendar-alt"></i>
+                    Member since {{ current_user.created_at.strftime('%B %d, %Y') }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-body">
+
+        <!-- Stats Row -->
+        <div class="profile-stats-row">
+            <div class="pstat-card">
+                <div class="pstat-icon">
+                    <i class="fas fa-file"></i>
+                </div>
+                <div class="pstat-info">
+                    <span class="pstat-value">{{ total_files }}</span>
+                    <span class="pstat-label">Total Files</span>
+                </div>
+            </div>
+
+            <div class="pstat-card">
+                <div class="pstat-icon" style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);">
+                    <i class="fas fa-hdd"></i>
+                </div>
+                <div class="pstat-info">
+                    <span class="pstat-value">{{ storage_used_mb }} MB</span>
+                    <span class="pstat-label">Storage Used</span>
+                </div>
+            </div>
+
+            <div class="pstat-card">
+                <div class="pstat-icon" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
+                    <i class="fas fa-share-alt"></i>
+                </div>
+                <div class="pstat-info">
+                    <span class="pstat-value">{{ shared_files }}</span>
+                    <span class="pstat-label">Shared Files</span>
+                </div>
+            </div>
+
+            <div class="pstat-card">
+                <div class="pstat-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="pstat-info">
+                    <span class="pstat-value">Active</span>
+                    <span class="pstat-label">Account Status</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-grid">
+
+            <!-- LEFT COLUMN -->
+            <div class="profile-left">
+
+                <!-- Storage Breakdown -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h2><i class="fas fa-chart-pie"></i> Storage Breakdown</h2>
+                    </div>
+
+                    <!-- Storage Bar -->
+                    <div class="storage-overview">
+                        <div class="storage-bar-large">
+                            <div class="storage-fill-large"
+                                 style="width: 0%"
+                                 data-percent="{{ storage_percent }}">
+                            </div>
+                        </div>
+                        <div class="storage-labels">
+                            <span>{{ storage_used_mb }} MB used</span>
+                            <span>1024 MB total</span>
+                        </div>
+                    </div>
+
+                    <!-- File Types List -->
+                    {% if file_types %}
+                    <div class="file-types-list">
+                        {% for ftype, count in file_types %}
+                        <div class="file-type-row">
+                            <div class="ftype-left">
+                                <span class="ftype-dot"></span>
+                                <span class="ftype-name">{{ ftype.upper() }}</span>
+                            </div>
+                            <div class="ftype-right">
+                                <span class="ftype-count">
+                                    {{ count }} file{{ 's' if count != 1 }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-types">
+                        <i class="fas fa-folder-open"></i>
+                        <p>No files uploaded yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+                    </div>
+                    <div class="quick-actions">
+                        <a href="{{ url_for('files.dashboard') }}"
+                           class="quick-action-btn">
+                            <i class="fas fa-th-large"></i>
+                            Go to Dashboard
+                        </a>
+                        <a href="{{ url_for('files.dashboard', type='image') }}"
+                           class="quick-action-btn">
+                            <i class="fas fa-image"></i>
+                            View Images
+                        </a>
+                        <a href="{{ url_for('files.dashboard', type='document') }}"
+                           class="quick-action-btn">
+                            <i class="fas fa-file-alt"></i>
+                            View Documents
+                        </a>
+                        <a href="{{ url_for('auth.logout') }}"
+                           class="quick-action-btn danger">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN -->
+            <div class="profile-right">
+
+                <!-- Account Info -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h2><i class="fas fa-user-circle"></i> Account Info</h2>
+                    </div>
+                    <div class="account-info-list">
+                        <div class="account-info-row">
+                            <span class="info-label">
+                                <i class="fas fa-user"></i> Username
+                            </span>
+                            <span class="info-value">{{ current_user.username }}</span>
+                        </div>
+                        <div class="account-info-row">
+                            <span class="info-label">
+                                <i class="fas fa-envelope"></i> Email
+                            </span>
+                            <span class="info-value">{{ current_user.email }}</span>
+                        </div>
+                        <div class="account-info-row">
+                            <span class="info-label">
+                                <i class="fas fa-calendar"></i> Joined
+                            </span>
+                            <span class="info-value">
+                                {{ current_user.created_at.strftime('%d %B %Y') }}
+                            </span>
+                        </div>
+                        <div class="account-info-row">
+                            <span class="info-label">
+                                <i class="fas fa-database"></i> Plan
+                            </span>
+                            <span class="info-value">
+                                <span class="plan-badge">Free — 1 GB</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Change Password -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h2><i class="fas fa-key"></i> Change Password</h2>
+                    </div>
+
+                    <form method="POST"
+                          action="{{ url_for('profile.change_password') }}"
+                          class="auth-form">
+                        <div class="form-group">
+                            <label>
+                                <i class="fas fa-lock"></i> Current Password
+                            </label>
+                            <div class="password-wrapper">
+                                <input type="password"
+                                       name="current_password"
+                                       class="form-input"
+                                       placeholder="Enter current password"
+                                       required>
+                                <button type="button" class="password-toggle"
+                                        onclick="togglePassword('cur_pass')">
+                                    <i class="fas fa-eye" id="cur_pass-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <i class="fas fa-lock"></i> New Password
+                            </label>
+                            <div class="password-wrapper">
+                                <input type="password"
+                                       id="cur_pass"
+                                       name="new_password"
+                                       class="form-input"
+                                       placeholder="At least 6 characters"
+                                       minlength="6" required>
+                                <button type="button" class="password-toggle"
+                                        onclick="togglePassword('new_pass')">
+                                    <i class="fas fa-eye" id="new_pass-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <i class="fas fa-lock"></i> Confirm New Password
+                            </label>
+                            <div class="password-wrapper">
+                                <input type="password"
+                                       id="new_pass"
+                                       name="confirm_password"
+                                       class="form-input"
+                                       placeholder="Repeat new password"
+                                       required>
+                                <button type="button" class="password-toggle"
+                                        onclick="togglePassword('conf_pass')">
+                                    <i class="fas fa-eye" id="conf_pass-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-full">
+                            <i class="fas fa-save"></i> Update Password
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="profile-card danger-zone">
+                    <div class="profile-card-header">
+                        <h2><i class="fas fa-exclamation-triangle"></i> Danger Zone</h2>
+                    </div>
+                    <p class="danger-desc">
+                        Logging out will end your current session.
+                        All your files remain safely stored.
+                    </p>
+                    <a href="{{ url_for('auth.logout') }}"
+                       class="btn btn-danger btn-full"
+                       onclick="return confirm('Are you sure you want to logout?')">
+                        <i class="fas fa-sign-out-alt"></i> Logout of Account
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Animate storage bar
+    const fill = document.querySelector('.storage-fill-large');
+    if (fill) {
+        const target = fill.getAttribute('data-percent') || '0';
+        setTimeout(() => { fill.style.width = target + '%'; }, 300);
+    }
+});
+</script>
+{% endblock %}

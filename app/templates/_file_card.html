@@ -1,0 +1,14 @@
+<!-- Reusable file card component -->
+<div class="file-card" data-file-id="{{ file.id }}">
+    <div class="file-icon">{{ file.get_icon() }}</div>
+    <div class="file-info">
+        <p class="file-name" title="{{ file.filename }}">{{ file.filename }}</p>
+        <span class="file-meta">{{ file.get_size_display() }}</span>
+    </div>
+    <div class="file-actions">
+        <a href="{{ url_for('files.download', file_id=file.id) }}"
+           class="action-btn btn-download" title="Download">
+            <i class="fas fa-download"></i>
+        </a>
+    </div>
+</div>

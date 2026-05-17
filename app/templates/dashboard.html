@@ -1,0 +1,356 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — CloudVault{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+
+    <!-- ═══════════════ SIDEBAR ═══════════════ -->
+    <aside class="sidebar">
+        <!-- User Info -->
+        <div class="sidebar-user">
+            <div class="user-avatar">
+                {{ current_user.username[0].upper() }}
+            </div>
+            <div class="user-info">
+                <span class="user-name">{{ current_user.username }}</span>
+                <span class="user-email">{{ current_user.email }}</span>
+            </div>
+        </div>
+
+        <!-- Storage Bar -->
+        <div class="storage-section">
+            <div class="storage-header">
+                <span><i class="fas fa-hdd"></i> Storage</span>
+                <span>{{ storage_used_mb }} MB used</span>
+            </div>
+            <div class="storage-bar">
+                <div class="storage-fill"
+                     style="width: 0%"
+                     data-percent="{{ storage_percent }}">
+                </div>
+            </div>
+            <div class="storage-footer">
+                <small>{{ storage_percent }}% of {{ storage_limit_mb }} MB used</small>
+            </div>
+        </div>
+
+        <!-- File Type Filters -->
+        <div class="sidebar-filters">
+            <p class="filter-label">BROWSE BY TYPE</p>
+            <a href="{{ url_for('files.dashboard') }}"
+               class="sidebar-link {% if file_type_filter == 'all' %}active{% endif %}">
+                <i class="fas fa-th-large"></i>
+                All Files
+                <span class="badge">{{ files|length }}</span>
+            </a>
+            <a href="{{ url_for('files.dashboard', type='images') }}"
+               class="sidebar-link {% if file_type_filter == 'images' %}active{% endif %}">
+                <i class="fas fa-image"></i>
+                Images
+                <span class="badge">{{ total_images }}</span>
+            </a>
+            <a href="{{ url_for('files.dashboard', type='documents') }}"
+               class="sidebar-link {% if file_type_filter == 'documents' %}active{% endif %}">
+                <i class="fas fa-file-alt"></i>
+                Documents
+                <span class="badge">{{ total_docs }}</span>
+            </a>
+            <a href="{{ url_for('files.dashboard', type='videos') }}"
+               class="sidebar-link {% if file_type_filter == 'videos' %}active{% endif %}">
+                <i class="fas fa-video"></i>
+                Videos
+                <span class="badge">{{ total_videos }}</span>
+            </a>
+        </div>
+
+        <!-- Nav Links -->
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('profile.profile_page') }}" class="sidebar-link">
+                <i class="fas fa-user"></i> Profile
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="sidebar-link sidebar-logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </nav>
+    </aside>
+
+    <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+    <div class="dashboard-main">
+
+        <!-- Top Bar -->
+        <div class="dashboard-topbar">
+            <!-- Search -->
+            <form action="{{ url_for('files.dashboard') }}" method="GET" class="search-wrapper">
+                <!-- Keep current filters when searching -->
+                {% if file_type_filter != 'all' %}
+                    <input type="hidden" name="type" value="{{ file_type_filter }}">
+                {% endif %}
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" name="q"
+                           placeholder="Search your files..."
+                           value="{{ search_query }}"
+                           class="search-input">
+                    {% if search_query %}
+                        <a href="{{ url_for('files.dashboard') }}" class="search-clear">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <!-- Sort Dropdown -->
+            <div class="sort-wrapper">
+                <select class="sort-select" onchange="sortFiles(this.value)">
+                    <option value="date" {% if sort_by == 'date' %}selected{% endif %}>
+                         Newest First
+                    </option>
+                    <option value="name" {% if sort_by == 'name' %}selected{% endif %}>
+                         Name A-Z
+                    </option>
+                    <option value="size" {% if sort_by == 'size' %}selected{% endif %}>
+                         Largest First
+                    </option>
+                </select>
+            </div>
+
+            <!-- Upload Button -->
+            <button class="btn btn-primary"
+                    onclick="document.getElementById('fileInput').click()">
+                <i class="fas fa-upload"></i>
+                <span>Upload</span>
+            </button>
+
+            <!-- Hidden upload form -->
+            <form id="uploadForm"
+                  action="{{ url_for('files.upload') }}"
+                  method="POST"
+                  enctype="multipart/form-data"
+                  style="display:none;">
+                <input type="file" id="fileInput" name="file" multiple
+                       onchange="handleFileSelect(this)">
+            </form>
+        </div>
+
+        <!-- Upload Progress Bar (hidden by default) -->
+        <div class="upload-progress hidden" id="uploadProgress">
+            <div class="upload-progress-bar">
+                <div class="upload-progress-fill" id="uploadFill"></div>
+            </div>
+            <span id="uploadText">Uploading...</span>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-zone-content">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Drag & Drop files here to upload</p>
+                <small>Supports all file types up to 100MB</small>
+            </div>
+        </div>
+
+        <!-- ── RECENT FILES ── -->
+        {% if recent_files and not search_query %}
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-heading">
+                    <i class="fas fa-clock"></i> Recent Files
+                </h2>
+            </div>
+            <div class="recent-grid">
+                {% for file in recent_files %}
+                <div class="recent-card" data-file-id="{{ file.id }}">
+                    <!-- Image preview OR icon -->
+                    {% if file.file_type.lower() in ['jpg','jpeg','png','gif','webp','svg'] and preview_urls.get(file.id) %}
+                        <div class="recent-preview">
+                            <img src="{{ preview_urls[file.id] }}"
+                                 alt="{{ file.filename }}"
+                                 class="preview-img"
+                                 onerror="this.parentElement.innerHTML='<span class=\'file-icon-lg\'>{{ file.get_icon() }}</span>'">
+                        </div>
+                    {% else %}
+                        <div class="recent-preview recent-preview-icon">
+                            <span class="file-icon-lg">{{ file.get_icon() }}</span>
+                        </div>
+                    {% endif %}
+                    <div class="recent-info">
+                        <p class="file-name" title="{{ file.filename }}">
+                            {{ file.filename }}
+                        </p>
+                        <span class="file-meta">
+                            {{ file.get_size_display() }}
+                        </span>
+                    </div>
+                    <div class="recent-actions">
+                        <a href="{{ url_for('files.download', file_id=file.id) }}"
+                           class="action-btn btn-download" title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ── ALL FILES ── -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-heading">
+                    <i class="fas fa-folder-open"></i>
+                    {% if search_query %}
+                        Results for "{{ search_query }}"
+                    {% elif file_type_filter == 'images' %}
+                        🖼️ Images
+                    {% elif file_type_filter == 'documents' %}
+                        📄 Documents
+                    {% elif file_type_filter == 'videos' %}
+                        🎬 Videos
+                    {% else %}
+                        All Files
+                    {% endif %}
+                    <span class="file-count">({{ files|length }})</span>
+                </h2>
+
+                <!-- View Toggle: Grid / List -->
+                <div class="view-toggle">
+                    <button class="view-btn active" id="gridViewBtn"
+                            onclick="setView('grid')" title="Grid View">
+                        <i class="fas fa-th"></i>
+                    </button>
+                    <button class="view-btn" id="listViewBtn"
+                            onclick="setView('list')" title="List View">
+                        <i class="fas fa-list"></i>
+                    </button>
+                </div>
+            </div>
+
+            {% if files %}
+                <div class="files-grid" id="filesGrid">
+                    {% for file in files %}
+                    <div class="file-card animate-in" data-file-id="{{ file.id }}"
+                         style="animation-delay: {{ loop.index0 * 0.05 }}s">
+
+                        <!-- Image Preview or File Icon -->
+                        <div class="file-thumbnail">
+                            {% if file.file_type.lower() in ['jpg','jpeg','png','gif','webp','svg'] and preview_urls.get(file.id) %}
+                                <img src="{{ preview_urls[file.id] }}"
+                                     alt="{{ file.filename }}"
+                                     class="thumb-img"
+                                     onerror="this.parentElement.innerHTML='<span class=\'file-icon\'>{{ file.get_icon() }}</span>'">
+                            {% else %}
+                                <span class="file-icon">{{ file.get_icon() }}</span>
+                            {% endif %}
+
+                            <!-- File type badge -->
+                            <span class="file-type-badge">
+                                {{ file.file_type.upper() }}
+                            </span>
+                        </div>
+
+                        <!-- File Info -->
+                        <div class="file-info">
+                            <p class="file-name" title="{{ file.filename }}">
+                                {{ file.filename }}
+                            </p>
+                            <span class="file-meta">
+                                <i class="fas fa-weight-hanging"></i>
+                                {{ file.get_size_display() }}
+                                &nbsp;•&nbsp;
+                                <i class="fas fa-calendar-alt"></i>
+                                {{ file.uploaded_at.strftime('%d %b %Y') }}
+                            </span>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="file-actions">
+                            <a href="{{ url_for('files.download', file_id=file.id) }}"
+                               class="action-btn btn-download" title="Download">
+                                <i class="fas fa-download"></i>
+                            </a>
+
+                            <button class="action-btn btn-share {% if file.is_shared %}active{% endif %}"
+                                    onclick="toggleShare({{ file.id }}, this)"
+                                    title="Share">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+
+                            <form method="POST"
+                                  action="{{ url_for('files.delete', file_id=file.id) }}"
+                                  onsubmit="return confirmDelete('{{ file.filename }}')">
+                                <button type="submit" class="action-btn btn-delete"
+                                        title="Delete">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Share Link Box -->
+                        <div class="share-link-box {% if not file.is_shared %}hidden{% endif %}"
+                             id="share-{{ file.id }}">
+                            <input type="text" readonly class="share-input"
+                                   value="{% if file.is_shared %}{{ url_for('files.shared_file', token=file.share_token, _external=True) }}{% endif %}">
+                            <button onclick="copyShareLink({{ file.id }})" class="copy-btn">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+            {% else %}
+                <!-- Empty State -->
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        {% if search_query %}
+                            <i class="fas fa-search"></i>
+                        {% else %}
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        {% endif %}
+                    </div>
+                    {% if search_query %}
+                        <h3>No files found</h3>
+                        <p>No files match "<strong>{{ search_query }}</strong>"</p>
+                        <a href="{{ url_for('files.dashboard') }}" class="btn btn-outline">
+                            Clear Search
+                        </a>
+                    {% else %}
+                        <h3>No files yet!</h3>
+                        <p>Upload your first file to get started</p>
+                        <button class="btn btn-primary"
+                                onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-upload"></i> Upload Files
+                        </button>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ SHARE MODAL ═══════════════ -->
+<div class="modal-overlay hidden" id="shareModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-share-alt"></i> Share File</h3>
+            <button onclick="closeModal()" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Anyone with this link can view and download the file:</p>
+            <div class="share-link-display">
+                <input type="text" id="modalShareLink" readonly class="form-input">
+                <button onclick="copyModalLink()" class="btn btn-primary">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+            <div class="share-tips">
+                <i class="fas fa-info-circle"></i>
+                Click the share button again to remove access.
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

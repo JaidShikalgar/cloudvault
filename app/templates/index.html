@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}CloudVault — Your Files, Everywhere{% endblock %}
+
+{% block content %}
+
+<!-- HERO SECTION -->
+<section class="hero">
+    <div class="hero-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+    
+    <div class="hero-content">
+        <div class="hero-badge">
+            <i class="fas fa-shield-alt"></i>
+            Secure Cloud Storage
+        </div>
+        
+        <h1 class="hero-title">
+            Store Everything.<br>
+            <span class="gradient-text">Access Anywhere.</span>
+        </h1>
+        
+        <p class="hero-subtitle">
+            CloudVault is your personal cloud storage. Upload, manage, and share
+            your files securely — from anywhere in the world.
+        </p>
+        
+        <div class="hero-buttons">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('files.dashboard') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-th-large"></i> Go to Dashboard
+                </a>
+            {% else %}
+                <a href="{{ url_for('auth.signup') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-rocket"></i> Get Started Free
+                </a>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline btn-lg">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </a>
+            {% endif %}
+        </div>
+        
+        <!-- Stats -->
+        <div class="hero-stats">
+            <div class="stat">
+                <span class="stat-number">1 GB</span>
+                <span class="stat-label">Free Storage</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+                <span class="stat-number">100%</span>
+                <span class="stat-label">Secure</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+                <span class="stat-number">∞</span>
+                <span class="stat-label">File Types</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FEATURES SECTION -->
+<section class="features">
+    <div class="container">
+        <h2 class="section-title">Everything You Need</h2>
+        <p class="section-subtitle">Powerful features for effortless file management</p>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-upload"></i>
+                </div>
+                <h3>Easy Upload</h3>
+                <p>Drag & drop or click to upload. Supports all file types up to 100MB each.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-share-alt"></i>
+                </div>
+                <h3>Instant Sharing</h3>
+                <p>Share any file with a single click. Get a public link instantly.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3>Smart Search</h3>
+                <p>Find any file instantly with our powerful search feature.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>Bank-Level Security</h3>
+                <p>Your files are encrypted and stored securely on Supabase cloud.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-mobile-alt"></i>
+                </div>
+                <h3>Works Everywhere</h3>
+                <p>Fully responsive design. Works perfectly on phones, tablets, and desktops.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h3>Storage Insights</h3>
+                <p>Visual storage usage bar so you always know how much space you have left.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA SECTION -->
+<section class="cta-section">
+    <div class="container">
+        <div class="cta-card">
+            <h2>Start Storing for Free</h2>
+            <p>Get 1 GB of free cloud storage. No credit card required.</p>
+            <a href="{{ url_for('auth.signup') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-user-plus"></i> Create Free Account
+            </a>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

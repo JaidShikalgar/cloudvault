@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}{{ file.filename }} — Shared via CloudVault{% endblock %}
+
+{% block content %}
+<div class="shared-container">
+    <div class="shared-card">
+        <div class="shared-icon">{{ file.get_icon() }}</div>
+        <h1 class="shared-filename">{{ file.filename }}</h1>
+        <div class="shared-meta">
+            <span><i class="fas fa-weight-hanging"></i> {{ file.get_size_display() }}</span>
+            <span><i class="fas fa-calendar"></i> {{ file.uploaded_at.strftime('%d %B %Y') }}</span>
+        </div>
+        <p class="shared-info">
+            This file has been shared publicly via CloudVault.
+        </p>
+        <a href="{{ url_for('files.download_shared', token=file.share_token) }}"
+           class="btn btn-primary btn-lg">
+            <i class="fas fa-download"></i> Download File
+        </a>
+        <div class="shared-footer">
+            <p>Want your own cloud storage? 
+                <a href="{{ url_for('auth.signup') }}">Sign up free →</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

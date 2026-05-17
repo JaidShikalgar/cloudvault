@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CloudVault{% endblock %}</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Our custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {% block head %}{% endblock %}
+</head>
+<body>
+    
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <!-- Logo -->
+            <a href="{{ url_for('main.index') }}" class="nav-logo">
+                <i class="fas fa-cloud"></i>
+                <span>CloudVault</span>
+            </a>
+            
+            <!-- Nav links -->
+            <div class="nav-links">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('files.dashboard') }}" class="nav-link">
+                        <i class="fas fa-th-large"></i> Dashboard
+                    </a>
+                    <a href="{{ url_for('profile.profile_page') }}" class="nav-link">
+                        <i class="fas fa-user"></i> {{ current_user.username }}
+                    </a>
+                    <a href="{{ url_for('auth.logout') }}" class="nav-link btn-outline">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="nav-link">Login</a>
+                    <a href="{{ url_for('auth.signup') }}" class="nav-link btn-primary">Get Started</a>
+                {% endif %}
+                
+                <!-- Dark mode toggle -->
+                <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- FLASH MESSAGES -->
+    <!-- Flash messages are one-time notifications from Flask (success/error/info) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">
+                        <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
+                        {{ message }}
+                        <button class="flash-close" onclick="this.parentElement.remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <!-- MAIN CONTENT -->
+    <!-- Each page "fills in" this block with its own content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- FOOTER -->
+    <footer class="footer">
+        <p>☁️ CloudVault &copy; 2026 — Built with Flask + Supabase</p>
+    </footer>
+    
+    <!-- Our custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
