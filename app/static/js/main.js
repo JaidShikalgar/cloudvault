@@ -1,14 +1,12 @@
 // -*- coding: utf-8 -*-
-// app/static/js/main.js
-// CloudVault — Complete JavaScript
+// app/static/js/main.js — CloudVault Final
 
 // ═══════════════════════════════════════
-// DARK MODE
+// THEME
 // ═══════════════════════════════════════
 const themeToggle = document.getElementById('themeToggle');
 const themeIcon   = document.getElementById('themeIcon');
 const html        = document.documentElement;
-
 const savedTheme  = localStorage.getItem('cv_theme') || 'dark';
 html.setAttribute('data-theme', savedTheme);
 updateThemeIcon(savedTheme);
@@ -21,46 +19,40 @@ if (themeToggle) {
         updateThemeIcon(next);
     });
 }
-
 function updateThemeIcon(theme) {
     if (!themeIcon) return;
     themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
 }
 
 // ═══════════════════════════════════════
-// ON PAGE LOAD
+// PAGE LOAD
 // ═══════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-
-    // Animate storage bar
+    // Storage bar animation
     const fill = document.querySelector('.storage-fill');
     if (fill) {
         const pct = fill.getAttribute('data-percent') || '0';
         setTimeout(() => { fill.style.width = pct + '%'; }, 400);
     }
-
-    // Animate profile storage bar
+    // Profile storage bar
     const fillLarge = document.querySelector('.storage-fill-large');
     if (fillLarge) {
         const pct = fillLarge.getAttribute('data-percent') || '0';
         setTimeout(() => { fillLarge.style.width = pct + '%'; }, 400);
     }
-
-    // Restore saved view mode
+    // Restore view
     const savedView = localStorage.getItem('cv_view') || 'grid';
     if (savedView === 'list') setView('list');
-
-    // Load image thumbnails
+    // Load thumbnails
     loadThumbnails();
-
-    // Animate file cards
+    // Animate cards
     document.querySelectorAll('.file-card').forEach((card, i) => {
         card.style.animationDelay = `${i * 0.05}s`;
     });
 });
 
 // ═══════════════════════════════════════
-// FLASH MESSAGES — auto dismiss
+// FLASH MESSAGES
 // ═══════════════════════════════════════
 document.querySelectorAll('.flash').forEach((flash, i) => {
     setTimeout(() => {
@@ -95,7 +87,27 @@ function confirmDelete(filename) {
 }
 
 // ═══════════════════════════════════════
-// SORT FILES
+// DOWNLOAD — via iframe (silent)
+// triggerDownload = called by download button ONLY
+// ═══════════════════════════════════════
+function triggerDownload(fileId) {
+    // Completely isolated from preview
+    // Uses hidden iframe — zero flash, zero new tab
+    let frame = document.getElementById('downloadFrame');
+    if (!frame) {
+        frame = document.createElement('iframe');
+        frame.id = 'downloadFrame';
+        frame.style.cssText = 'display:none;width:0;height:0;border:none;position:absolute;';
+        document.body.appendChild(frame);
+    }
+    // Small delay prevents any accidental double-trigger
+    setTimeout(() => {
+        frame.src = `/download/${fileId}?t=${Date.now()}`;
+    }, 50);
+}
+
+// ═══════════════════════════════════════
+// SORT
 // ═══════════════════════════════════════
 function changeSort(value) {
     const url = new URL(window.location.href);
@@ -104,14 +116,13 @@ function changeSort(value) {
 }
 
 // ═══════════════════════════════════════
-// VIEW TOGGLE (Grid / List)
+// VIEW TOGGLE
 // ═══════════════════════════════════════
 function setView(type) {
     const grid    = document.getElementById('filesGrid');
     const gridBtn = document.getElementById('gridViewBtn');
     const listBtn = document.getElementById('listViewBtn');
     if (!grid) return;
-
     if (type === 'list') {
         grid.classList.add('list-view');
         listBtn?.classList.add('active');
@@ -126,25 +137,21 @@ function setView(type) {
 }
 
 // ═══════════════════════════════════════
-// FILE UPLOAD — with progress bar
+// FILE UPLOAD
 // ═══════════════════════════════════════
 function handleFileSelect(input) {
     if (!input.files.length) return;
-
     const progress = document.getElementById('uploadProgress');
     const fill     = document.getElementById('uploadFill');
     const text     = document.getElementById('uploadText');
-
     if (progress) {
         progress.classList.remove('hidden');
         let pct = 0;
         if (text) text.textContent = `Uploading ${input.files.length} file(s)...`;
-
         const interval = setInterval(() => {
             pct = Math.min(pct + Math.random() * 15, 90);
             if (fill) fill.style.width = pct + '%';
         }, 200);
-
         setTimeout(() => {
             clearInterval(interval);
             if (fill) fill.style.width = '100%';
@@ -164,107 +171,111 @@ const fileInput = document.getElementById('fileInput');
 
 if (dropZone && fileInput) {
     ['dragenter','dragover','dragleave','drop'].forEach(ev => {
-        dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); });
+        dropZone.addEventListener(ev, e => {
+            e.preventDefault(); e.stopPropagation();
+        });
         document.body.addEventListener(ev, e => e.preventDefault());
     });
-
     ['dragenter','dragover'].forEach(ev =>
-        dropZone.addEventListener(ev, () => dropZone.classList.add('drag-over'))
+        dropZone.addEventListener(ev, () =>
+            dropZone.classList.add('drag-over'))
     );
     ['dragleave','drop'].forEach(ev =>
-        dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'))
+        dropZone.addEventListener(ev, () =>
+            dropZone.classList.remove('drag-over'))
     );
-
     dropZone.addEventListener('drop', e => {
-        const droppedFiles = e.dataTransfer.files;
-        if (!droppedFiles.length) return;
+        const dropped = e.dataTransfer.files;
+        if (!dropped.length) return;
         const dt = new DataTransfer();
-        Array.from(droppedFiles).forEach(f => dt.items.add(f));
+        Array.from(dropped).forEach(f => dt.items.add(f));
         fileInput.files = dt.files;
         handleFileSelect(fileInput);
     });
-
     dropZone.addEventListener('click', () => fileInput.click());
 }
 
 // ═══════════════════════════════════════
-// IMAGE THUMBNAILS
+// LOAD THUMBNAILS
 // ═══════════════════════════════════════
-async function loadThumbnails() {
-    const thumbImgs = document.querySelectorAll('.thumb-img[data-file-id]');
-    for (const img of thumbImgs) {
+// ═══════════════════════════════════════
+// LOAD THUMBNAILS
+// Uses /preview/ route directly as img src
+// No JSON, no presigned URL, zero flash!
+// ═══════════════════════════════════════
+function loadThumbnails() {
+    const imgs = document.querySelectorAll(
+        '.thumb-img[data-file-id]'
+    );
+    imgs.forEach(img => {
         const fileId = img.getAttribute('data-file-id');
-        try {
-            const res  = await fetch(`/preview/${fileId}`);
-            const data = await res.json();
-            if (data.url) {
-                img.src = data.url;
-                img.style.display = 'block';
-                // Hide fallback icon
-                const fallback = img.nextElementSibling;
-                if (fallback) fallback.style.display = 'none';
-            } else {
-                throw new Error('No URL');
-            }
-        } catch (e) {
-            // Show emoji fallback icon
+        // Set src directly — Flask serves image inline
+        img.src = `/preview/${fileId}`;
+        img.onload = () => {
+            img.style.display = 'block';
+            const fallback = img.nextElementSibling;
+            if (fallback) fallback.style.display = 'none';
+        };
+        img.onerror = () => {
             img.style.display = 'none';
             const fallback = img.nextElementSibling;
             if (fallback) fallback.style.display = 'flex';
-        }
-    }
+        };
+    });
 }
 
 // ═══════════════════════════════════════
 // IMAGE PREVIEW MODAL
+// preview and download are 100% isolated
+// openPreview NEVER calls triggerDownload
 // ═══════════════════════════════════════
-const imageTypes = ['jpg','jpeg','png','gif','webp','svg'];
-
-function previewOrDownload(fileId, fileType, filename) {
-    if (imageTypes.includes(fileType.toLowerCase())) {
-        openPreview(fileId, filename);
-    } else {
-        window.location.href = `/download/${fileId}`;
-    }
-}
-
-async function openPreview(fileId, filename) {
+// ═══════════════════════════════════════
+// IMAGE PREVIEW MODAL
+// Uses /preview/ route as img src directly
+// No presigned URL = zero download flash!
+// ═══════════════════════════════════════
+function openPreview(fileId, filename) {
     const modal     = document.getElementById('previewModal');
     const img       = document.getElementById('previewImg');
     const loading   = document.getElementById('previewLoading');
     const noSupport = document.getElementById('previewNoSupport');
-    const dlBtn     = document.getElementById('previewDownloadBtn');
     const fnLabel   = document.getElementById('previewFilename');
+    const dlBtn     = document.getElementById('previewDownloadBtn');
 
     if (!modal) return;
 
-    // Reset state
+    // Setup
     if (fnLabel)   fnLabel.textContent = filename;
-    if (dlBtn)     dlBtn.href = `/download/${fileId}`;
-    if (img)       img.classList.add('hidden');
+    if (img)     { img.src = ''; img.classList.add('hidden'); }
     if (noSupport) noSupport.classList.add('hidden');
     if (loading)   loading.classList.remove('hidden');
+
+    // Download button in modal
+    if (dlBtn) {
+        dlBtn.removeAttribute('href');
+        dlBtn.onclick = (e) => {
+            e.preventDefault();
+            triggerDownload(fileId);
+        };
+    }
+
+    // Show modal
     modal.classList.remove('hidden');
 
-    try {
-        const res  = await fetch(`/preview/${fileId}`);
-        const data = await res.json();
-
-        if (loading) loading.classList.add('hidden');
-
-        if (data.url && img) {
-            img.src = data.url;
-            img.onload = () => img.classList.remove('hidden');
-            img.onerror = () => {
-                img.classList.add('hidden');
-                if (noSupport) noSupport.classList.remove('hidden');
-            };
-        } else {
+    // Set image src to our Flask proxy route
+    // /preview/<id> returns image with inline headers
+    // This NEVER triggers download bar!
+    if (img) {
+        img.onload = () => {
+            if (loading) loading.classList.add('hidden');
+            img.classList.remove('hidden');
+        };
+        img.onerror = () => {
+            if (loading)   loading.classList.add('hidden');
             if (noSupport) noSupport.classList.remove('hidden');
-        }
-    } catch (e) {
-        if (loading)   loading.classList.add('hidden');
-        if (noSupport) noSupport.classList.remove('hidden');
+        };
+        // Direct image URL — no JSON fetch needed
+        img.src = `/preview/${fileId}`;
     }
 }
 
@@ -275,7 +286,6 @@ function closePreview() {
     if (img)   img.src = '';
 }
 
-// Click outside to close preview
 document.getElementById('previewModal')?.addEventListener('click', function(e) {
     if (e.target === this) closePreview();
 });
@@ -286,18 +296,11 @@ document.getElementById('previewModal')?.addEventListener('click', function(e) {
 async function toggleShare(fileId, button) {
     button.disabled = true;
     button.style.opacity = '0.5';
-
     try {
-        const res = await fetch(`/share/${fileId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        if (!res.ok) throw new Error('Request failed');
-
+        const res  = await fetch(`/share/${fileId}`, { method: 'POST' });
         const data = await res.json();
         const box  = document.getElementById(`share-${fileId}`);
         const inp  = box?.querySelector('.share-input');
-
         if (data.shared) {
             button.classList.add('shared-active');
             button.title = 'Unshare';
@@ -311,8 +314,7 @@ async function toggleShare(fileId, button) {
             if (box) box.classList.add('hidden');
             showToast('File is now private', 'info');
         }
-    } catch (err) {
-        console.error(err);
+    } catch {
         showToast('Something went wrong', 'error');
     } finally {
         button.disabled = false;
@@ -321,20 +323,16 @@ async function toggleShare(fileId, button) {
 }
 
 // ═══════════════════════════════════════
-// COPY LINKS
+// COPY
 // ═══════════════════════════════════════
 function copyShareLink(fileId) {
-    const box = document.getElementById(`share-${fileId}`);
-    const inp = box?.querySelector('.share-input');
-    if (!inp?.value) return;
-    copyText(inp.value);
+    const inp = document.querySelector(`#share-${fileId} .share-input`);
+    if (inp?.value) copyText(inp.value);
 }
-
 function copyModalLink() {
     const inp = document.getElementById('modalShareLink');
     if (inp) copyText(inp.value);
 }
-
 function copyText(text) {
     navigator.clipboard.writeText(text)
         .then(() => showToast('✅ Link copied!'))
@@ -359,20 +357,16 @@ function showShareModal(url) {
     if (inp) inp.value = url;
     modal.classList.remove('hidden');
 }
-
 function closeShareModal() {
     document.getElementById('shareModal')?.classList.add('hidden');
 }
-
-// Also support old closeModal() name
 function closeModal() { closeShareModal(); }
-
 document.getElementById('shareModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeShareModal();
 });
 
 // ═══════════════════════════════════════
-// TOAST NOTIFICATIONS
+// TOAST
 // ═══════════════════════════════════════
 function showToast(message, type = 'success') {
     const map = {
@@ -381,20 +375,14 @@ function showToast(message, type = 'success') {
         info:    { cls: 'flash-info',    icon: 'info-circle' },
     };
     const { cls, icon } = map[type] || map.success;
-
     const toast = document.createElement('div');
     toast.className = `flash ${cls}`;
     toast.style.cssText = `
-        position: fixed;
-        bottom: 1.5rem;
-        right: 1.5rem;
-        z-index: 9999;
-        animation: slideIn 0.3s ease;
-        max-width: 320px;
+        position:fixed; bottom:1.5rem; right:1.5rem;
+        z-index:9999; animation:slideIn 0.3s ease; max-width:320px;
     `;
     toast.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
     document.body.appendChild(toast);
-
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transition = 'opacity 0.4s';
@@ -403,39 +391,30 @@ function showToast(message, type = 'success') {
 }
 
 // ═══════════════════════════════════════
-// MOBILE SIDEBAR TOGGLE
+// MOBILE SIDEBAR
 // ═══════════════════════════════════════
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     if (!sidebar) return;
-
     const isOpen = sidebar.classList.toggle('open');
     if (overlay) overlay.classList.toggle('open', isOpen);
-
-    // Prevent body scroll when sidebar is open
     document.body.style.overflow = isOpen ? 'hidden' : '';
 }
 
 // ═══════════════════════════════════════
-// NAVBAR HAMBURGER TOGGLE
+// NAVBAR HAMBURGER
 // ═══════════════════════════════════════
 const navHamburger = document.getElementById('navHamburger');
 const navLinksEl   = document.getElementById('navLinks');
-
 if (navHamburger && navLinksEl) {
     navHamburger.addEventListener('click', (e) => {
         e.stopPropagation();
         navLinksEl.classList.toggle('open');
         const icon = navHamburger.querySelector('i');
-        if (icon) {
-            icon.className = navLinksEl.classList.contains('open')
-                ? 'fas fa-times'
-                : 'fas fa-bars';
-        }
+        if (icon) icon.className = navLinksEl.classList.contains('open')
+            ? 'fas fa-times' : 'fas fa-bars';
     });
-
-    // Close nav when a link is clicked
     navLinksEl.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', () => {
             navLinksEl.classList.remove('open');
@@ -443,10 +422,9 @@ if (navHamburger && navLinksEl) {
             if (icon) icon.className = 'fas fa-bars';
         });
     });
-
-    // Close nav when clicking outside
     document.addEventListener('click', (e) => {
-        if (!navLinksEl.contains(e.target) && !navHamburger.contains(e.target)) {
+        if (!navLinksEl.contains(e.target) &&
+            !navHamburger.contains(e.target)) {
             navLinksEl.classList.remove('open');
             const icon = navHamburger.querySelector('i');
             if (icon) icon.className = 'fas fa-bars';
@@ -458,11 +436,9 @@ if (navHamburger && navLinksEl) {
 // KEYBOARD SHORTCUTS
 // ═══════════════════════════════════════
 document.addEventListener('keydown', (e) => {
-    // Escape closes all modals
     if (e.key === 'Escape') {
         closePreview();
         closeShareModal();
-        // Close mobile sidebar too
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         if (sidebar?.classList.contains('open')) {
@@ -471,10 +447,9 @@ document.addEventListener('keydown', (e) => {
             document.body.style.overflow = '';
         }
     }
-
-    // Press '/' to focus search box
-    if (e.key === '/' && document.activeElement.tagName !== 'INPUT'
-                      && document.activeElement.tagName !== 'TEXTAREA') {
+    if (e.key === '/' &&
+        document.activeElement.tagName !== 'INPUT' &&
+        document.activeElement.tagName !== 'TEXTAREA') {
         e.preventDefault();
         document.getElementById('searchInput')?.focus();
     }

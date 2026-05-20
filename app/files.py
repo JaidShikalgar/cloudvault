@@ -2,14 +2,13 @@
 # app/files.py
 
 from flask import (Blueprint, render_template, redirect, url_for,
-                   flash, request, send_file, jsonify, current_app, Response)
+                   flash, request, send_file, jsonify, current_app)
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
-from app.models import File, User
+from app.models import File
+from app.storage import upload_file, download_file, delete_file, get_presigned_url
 import os, uuid, secrets, io
-from datetime import datetime
-import requests as http_requests
 
 files = Blueprint('files', __name__)
 
@@ -24,73 +23,40 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def get_supabase():
-    """Create and return Supabase client"""
-    from supabase import create_client
-    url = current_app.config['SUPABASE_URL']
-    key = current_app.config['SUPABASE_KEY']
-    
-    # DEBUG - print what we actually have
-    print(f"DEBUG ENV - URL: '{url}'")
-    print(f"DEBUG ENV - KEY starts with: '{str(key)[:20] if key else None}'")
-    
-    if not url or not key:
-        print("DEBUG: url or key is empty!")
-        return None
-    if 'your_supabase' in str(url):
-        print("DEBUG: url still has placeholder text!")
-        return None
-        
-    return create_client(url, key)
 
-def get_preview_url(stored_name):
-    """Get a temporary preview URL for image files"""
-    try:
-        from flask import current_app
-        supabase = get_supabase()
-        if not supabase:
-            return None
-        bucket = current_app.config['SUPABASE_BUCKET']
-        response = supabase.storage.from_(bucket).create_signed_url(
-            path=stored_name,
-            expires_in=3600  # 1 hour
-        )
-        if isinstance(response, dict):
-            return (response.get('signedURL') or 
-                    response.get('signedUrl') or 
-                    response.get('signed_url'))
-        elif hasattr(response, 'signed_url'):
-            return response.signed_url
-    except Exception as e:
-        print(f"Preview URL error: {e}")
-    return None
-
+# ═══════════════════════════════════════
+# DASHBOARD
+# ═══════════════════════════════════════
 @files.route('/dashboard')
 @login_required
 def dashboard():
     search_query = request.args.get('q', '').strip()
-    sort_by = request.args.get('sort', 'date')  # date, name, size
-    file_type_filter = request.args.get('type', 'all')
+    sort_by      = request.args.get('sort', 'date')
+    file_type    = request.args.get('type', 'all')
 
     query = File.query.filter_by(user_id=current_user.id)
 
-    # Search filter
+    # Search
     if search_query:
         query = query.filter(File.filename.ilike(f'%{search_query}%'))
 
-    # File type filter
-    image_types = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp']
-    doc_types = ['pdf', 'doc', 'docx', 'txt', 'md']
-    video_types = ['mp4', 'avi', 'mov', 'mkv']
-    
-    if file_type_filter == 'images':
-        query = query.filter(File.file_type.in_(image_types))
-    elif file_type_filter == 'documents':
-        query = query.filter(File.file_type.in_(doc_types))
-    elif file_type_filter == 'videos':
-        query = query.filter(File.file_type.in_(video_types))
+    # File type categories
+    image_types = ['jpg','jpeg','png','gif','svg','webp']
+    doc_types   = ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv']
+    video_types = ['mp4','avi','mov','mkv']
+    audio_types = ['mp3','wav','flac']
 
-    # Sorting
+    # Filter by type
+    if file_type == 'image':
+        query = query.filter(File.file_type.in_(image_types))
+    elif file_type == 'document':
+        query = query.filter(File.file_type.in_(doc_types))
+    elif file_type == 'video':
+        query = query.filter(File.file_type.in_(video_types))
+    elif file_type == 'audio':
+        query = query.filter(File.file_type.in_(audio_types))
+
+    # Sort
     if sort_by == 'name':
         query = query.order_by(File.filename.asc())
     elif sort_by == 'size':
@@ -98,49 +64,42 @@ def dashboard():
     else:
         query = query.order_by(File.uploaded_at.desc())
 
-    all_files = query.all()
-
-    # Generate preview URLs for images
-    preview_urls = {}
-    for f in all_files:
-        if f.file_type.lower() in image_types:
-            preview_urls[f.id] = get_preview_url(f.stored_name)
-
+    all_files    = query.all()
     recent_files = File.query.filter_by(user_id=current_user.id)\
                              .order_by(File.uploaded_at.desc())\
                              .limit(6).all()
 
-    # Recent file previews
-    for f in recent_files:
-        if f.file_type.lower() in image_types and f.id not in preview_urls:
-            preview_urls[f.id] = get_preview_url(f.stored_name)
+    # Storage — now 10GB with B2
+    storage_limit_mb = current_app.config.get('STORAGE_LIMIT_MB', 10240)
+    storage_used_mb  = current_user.storage_used / (1024 * 1024)
+    storage_percent  = min((storage_used_mb / storage_limit_mb) * 100, 100)
 
-    storage_used_mb = current_user.storage_used / (1024 * 1024)
-    storage_limit_mb = 1024
-    storage_percent = min((storage_used_mb / storage_limit_mb) * 100, 100)
-
-    # File counts by type for sidebar
-    total_images = File.query.filter_by(user_id=current_user.id)\
-                             .filter(File.file_type.in_(image_types)).count()
-    total_docs = File.query.filter_by(user_id=current_user.id)\
-                           .filter(File.file_type.in_(doc_types)).count()
-    total_videos = File.query.filter_by(user_id=current_user.id)\
-                             .filter(File.file_type.in_(video_types)).count()
+    # File counts for sidebar filters
+    total       = File.query.filter_by(user_id=current_user.id).count()
+    image_count = File.query.filter_by(user_id=current_user.id)\
+                            .filter(File.file_type.in_(image_types)).count()
+    doc_count   = File.query.filter_by(user_id=current_user.id)\
+                            .filter(File.file_type.in_(doc_types)).count()
+    video_count = File.query.filter_by(user_id=current_user.id)\
+                            .filter(File.file_type.in_(video_types)).count()
 
     return render_template('dashboard.html',
                            files=all_files,
                            recent_files=recent_files,
-                           preview_urls=preview_urls,
                            search_query=search_query,
                            sort_by=sort_by,
-                           file_type_filter=file_type_filter,
+                           file_type=file_type,
                            storage_used_mb=round(storage_used_mb, 2),
                            storage_limit_mb=storage_limit_mb,
                            storage_percent=round(storage_percent, 1),
-                           total_images=total_images,
-                           total_docs=total_docs,
-                           total_videos=total_videos)
+                           total_count=total,
+                           image_count=image_count,
+                           doc_count=doc_count,
+                           video_count=video_count)
 
+# ═══════════════════════════════════════
+# UPLOAD
+# ═══════════════════════════════════════
 @files.route('/upload', methods=['POST'])
 @login_required
 def upload():
@@ -149,58 +108,58 @@ def upload():
         return redirect(url_for('files.dashboard'))
 
     uploaded_files = request.files.getlist('file')
-    success_count = 0
+    success_count  = 0
 
     for file in uploaded_files:
+        # Skip empty files
         if file.filename == '':
             continue
+
+        # Check allowed extension
         if not allowed_file(file.filename):
             flash(f'File type not allowed: {file.filename}', 'danger')
             continue
 
+        # Create safe unique filename
         original_name = file.filename
-        safe_name = secure_filename(original_name)
-        extension = safe_name.rsplit('.', 1)[1].lower() if '.' in safe_name else 'bin'
-        unique_name = f"{current_user.id}/{uuid.uuid4().hex}.{extension}"
+        safe_name     = secure_filename(original_name)
+        extension     = safe_name.rsplit('.', 1)[1].lower() \
+                        if '.' in safe_name else 'bin'
+        unique_name   = f"{current_user.id}/{uuid.uuid4().hex}.{extension}"
+
+        # Read file into memory
         file_content = file.read()
-        file_size = len(file_content)
-        mime = file.content_type or 'application/octet-stream'
+        file_size    = len(file_content)
+        mime         = file.content_type or 'application/octet-stream'
 
-        supabase = get_supabase()
-        print(f"DEBUG upload: supabase={'connected' if supabase else 'None'}")
+        # ── Upload to B2 → Supabase → Local ──
+        # upload_file() tries each backend automatically
+        backend = upload_file(file_content, unique_name, mime)
 
-        if supabase:
-            try:
-                bucket = current_app.config['SUPABASE_BUCKET']
-                supabase.storage.from_(bucket).upload(
-                    path=unique_name,
-                    file=file_content,
-                    file_options={"content-type": mime}
-                )
-                print(f"DEBUG: Uploaded to Supabase: {unique_name}")
-            except Exception as e:
-                flash(f'Upload failed for {original_name}: {str(e)}', 'danger')
-                print(f"DEBUG upload error: {e}")
-                continue
-        else:
-            upload_folder = os.path.join(
-                current_app.root_path, 'static', 'uploads', str(current_user.id)
+        # If all cloud storage failed, save locally
+        if backend == 'local':
+            folder = os.path.join(
+                current_app.root_path, 'static',
+                'uploads', str(current_user.id)
             )
-            os.makedirs(upload_folder, exist_ok=True)
-            local_filename = unique_name.replace('/', '_')
-            with open(os.path.join(upload_folder, local_filename), 'wb') as f:
+            os.makedirs(folder, exist_ok=True)
+            fname = unique_name.split('/')[-1]
+            with open(os.path.join(folder, fname), 'wb') as f:
                 f.write(file_content)
-            print(f"DEBUG: Saved locally: {local_filename}")
 
+        # Save file record to database
         new_file = File(
             filename=original_name,
             stored_name=unique_name,
             file_size=file_size,
             file_type=extension,
             mime_type=mime,
-            user_id=current_user.id
+            user_id=current_user.id,
+            storage_backend=backend
         )
         db.session.add(new_file)
+
+        # Update user storage usage
         current_user.storage_used += file_size
         success_count += 1
 
@@ -211,178 +170,230 @@ def upload():
     return redirect(url_for('files.dashboard'))
 
 
+# ═══════════════════════════════════════
+# DOWNLOAD
+# ═══════════════════════════════════════
 @files.route('/download/<int:file_id>')
 @login_required
 def download(file_id):
-    """Download a file"""
-    print(f"\n--- DOWNLOAD STARTED for file_id: {file_id} ---")
-    
     file = File.query.get_or_404(file_id)
-    print(f"DEBUG: File found: {file.filename}, stored as: {file.stored_name}")
 
     if file.user_id != current_user.id:
         flash('Access denied.', 'danger')
         return redirect(url_for('files.dashboard'))
 
-    supabase = get_supabase()
-    print(f"DEBUG: Supabase client: {'connected' if supabase else 'None - using local'}")
+    backend = getattr(file, 'storage_backend', 'b2') or 'b2'
 
-    if supabase:
-        bucket = current_app.config['SUPABASE_BUCKET']
-        print(f"DEBUG: Using bucket: {bucket}")
-        
-        # --- Try Method 1: Create signed URL and redirect ---
-        try:
-            print("DEBUG: Trying signed URL method...")
-            response = supabase.storage.from_(bucket).create_signed_url(
-                path=file.stored_name,
-                expires_in=300  # 5 minutes
-            )
-            print(f"DEBUG: Signed URL response: {response}")
-            
-            # Handle different response formats
-            signed_url = None
-            if isinstance(response, dict):
-                signed_url = response.get('signedURL') or response.get('signedUrl') or response.get('signed_url')
-            elif hasattr(response, 'signed_url'):
-                signed_url = response.signed_url
-            
-            if signed_url:
-                print(f"DEBUG: Got signed URL, redirecting...")
-                return redirect(signed_url)
-            else:
-                print(f"DEBUG: No signed URL in response: {response}")
-        except Exception as e:
-            print(f"DEBUG: Signed URL method failed: {e}")
+    print(f"DEBUG download: file={file.filename}, backend={backend}")
 
-        # --- Try Method 2: Direct download into memory ---
-        try:
-            print("DEBUG: Trying direct download method...")
-            data = supabase.storage.from_(bucket).download(file.stored_name)
-            print(f"DEBUG: Downloaded {len(data)} bytes")
-            return send_file(
-                io.BytesIO(data),
-                as_attachment=True,
-                download_name=file.filename,
-                mimetype=file.mime_type or 'application/octet-stream'
-            )
-        except Exception as e:
-            print(f"DEBUG: Direct download failed: {e}")
+    # Always stream through server
+    # NEVER redirect to presigned URL for downloads
+    # (presigned URL causes the browser tab flash)
+    data = download_file(file.stored_name, backend)
 
-        # --- Try Method 3: Get public URL (if bucket is public) ---
-        try:
-            print("DEBUG: Trying public URL method...")
-            public_url = supabase.storage.from_(bucket).get_public_url(file.stored_name)
-            print(f"DEBUG: Public URL: {public_url}")
-            if public_url:
-                return redirect(public_url)
-        except Exception as e:
-            print(f"DEBUG: Public URL method failed: {e}")
+    if data:
+        print(f"DEBUG: Got {len(data)} bytes, sending as attachment")
+        response = send_file(
+            io.BytesIO(data),
+            as_attachment=True,
+            download_name=file.filename,
+            mimetype='application/octet-stream'
+        )
+        # Extra headers to force download
+        response.headers['Content-Disposition'] = \
+            f'attachment; filename="{file.filename}"'
+        response.headers['Content-Type'] = 'application/octet-stream'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        return response
 
-        print("DEBUG: ALL download methods failed!")
-        flash('Download failed. Check terminal for details.', 'danger')
-        return redirect(url_for('files.dashboard'))
+    # Local fallback
+    local_path = os.path.join(
+        current_app.root_path, 'static', 'uploads',
+        str(file.user_id),
+        file.stored_name.split('/')[-1]
+    )
+    if os.path.exists(local_path):
+        return send_file(
+            local_path,
+            as_attachment=True,
+            download_name=file.filename,
+            mimetype='application/octet-stream'
+        )
 
-    else:
-        # Local fallback
-        print("DEBUG: Using local storage fallback")
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
-        local_path = os.path.join(upload_folder, file.stored_name.replace('/', '_'))
-        print(f"DEBUG: Looking for file at: {local_path}")
-        if os.path.exists(local_path):
-            return send_file(local_path, as_attachment=True, download_name=file.filename)
-        flash('File not found on server.', 'danger')
-        return redirect(url_for('files.dashboard'))
-
-
+    flash('File not found.', 'danger')
+    return redirect(url_for('files.dashboard'))
+# ═══════════════════════════════════════
+# DELETE
+# ═══════════════════════════════════════
 @files.route('/delete/<int:file_id>', methods=['POST'])
 @login_required
 def delete(file_id):
     file = File.query.get_or_404(file_id)
+
     if file.user_id != current_user.id:
         flash('Access denied.', 'danger')
         return redirect(url_for('files.dashboard'))
 
-    supabase = get_supabase()
-    if supabase:
-        try:
-            bucket = current_app.config['SUPABASE_BUCKET']
-            supabase.storage.from_(bucket).remove([file.stored_name])
-        except Exception as e:
-            print(f'Supabase delete error: {e}')
-    else:
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
-        local_path = os.path.join(upload_folder, file.stored_name.replace('/', '_'))
-        if os.path.exists(local_path):
-            os.remove(local_path)
+    backend = getattr(file, 'storage_backend', 'b2') or 'b2'
 
-    current_user.storage_used = max(0, current_user.storage_used - file.file_size)
+    # Delete from cloud storage
+    delete_file(file.stored_name, backend)
+
+    # Delete local file if exists
+    local_path = os.path.join(
+        current_app.root_path, 'static', 'uploads',
+        str(file.user_id), file.stored_name.split('/')[-1]
+    )
+    if os.path.exists(local_path):
+        os.remove(local_path)
+
+    # Update storage usage and remove DB record
+    current_user.storage_used = max(
+        0, current_user.storage_used - file.file_size
+    )
     db.session.delete(file)
     db.session.commit()
-    flash(f'🗑️ "{file.filename}" deleted.', 'success')
+
+    flash(f'🗑️ "{file.filename}" deleted successfully.', 'success')
     return redirect(url_for('files.dashboard'))
 
 
+# ═══════════════════════════════════════
+# SHARE
+# ═══════════════════════════════════════
 @files.route('/share/<int:file_id>', methods=['POST'])
 @login_required
 def share(file_id):
     file = File.query.get_or_404(file_id)
+
     if file.user_id != current_user.id:
         return jsonify({'error': 'Access denied'}), 403
 
     if file.is_shared:
-        file.is_shared = False
+        # Turn OFF sharing
+        file.is_shared   = False
         file.share_token = None
         db.session.commit()
         return jsonify({'shared': False})
     else:
+        # Turn ON sharing — generate unique public token
         file.share_token = secrets.token_urlsafe(32)
-        file.is_shared = True
+        file.is_shared   = True
         db.session.commit()
-        share_url = url_for('files.shared_file', token=file.share_token, _external=True)
+        share_url = url_for(
+            'files.shared_file',
+            token=file.share_token,
+            _external=True
+        )
         return jsonify({'shared': True, 'share_url': share_url})
 
 
+# ═══════════════════════════════════════
+# SHARED FILE PAGE (public — no login)
+# ═══════════════════════════════════════
 @files.route('/shared/<token>')
 def shared_file(token):
-    file = File.query.filter_by(share_token=token, is_shared=True).first_or_404()
+    file = File.query.filter_by(
+        share_token=token, is_shared=True
+    ).first_or_404()
     return render_template('shared.html', file=file)
 
 
+# ═══════════════════════════════════════
+# DOWNLOAD SHARED FILE (public — no login)
+# ═══════════════════════════════════════
 @files.route('/shared/download/<token>')
 def download_shared(token):
-    file = File.query.filter_by(share_token=token, is_shared=True).first_or_404()
-    supabase = get_supabase()
+    file = File.query.filter_by(
+        share_token=token, is_shared=True
+    ).first_or_404()
 
-    if supabase:
-        bucket = current_app.config['SUPABASE_BUCKET']
-        try:
-            response = supabase.storage.from_(bucket).create_signed_url(
-                path=file.stored_name, expires_in=300
-            )
-            signed_url = None
-            if isinstance(response, dict):
-                signed_url = response.get('signedURL') or response.get('signedUrl') or response.get('signed_url')
-            elif hasattr(response, 'signed_url'):
-                signed_url = response.signed_url
-            if signed_url:
-                return redirect(signed_url)
-        except Exception as e:
-            print(f"Shared download signed URL error: {e}")
-        try:
-            data = supabase.storage.from_(bucket).download(file.stored_name)
-            return send_file(io.BytesIO(data), as_attachment=True,
-                           download_name=file.filename,
-                           mimetype=file.mime_type or 'application/octet-stream')
-        except Exception as e:
-            print(f"Shared download direct error: {e}")
+    backend = getattr(file, 'storage_backend', 'b2') or 'b2'
 
-        flash('Download failed.', 'danger')
-        return redirect(url_for('files.shared_file', token=token))
-    else:
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
-        local_path = os.path.join(upload_folder, file.stored_name.replace('/', '_'))
-        if os.path.exists(local_path):
-            return send_file(local_path, as_attachment=True, download_name=file.filename)
-        flash('File not found.', 'danger')
-        return redirect(url_for('files.shared_file', token=token))
+    # Presigned URL
+    url = get_presigned_url(file.stored_name, backend)
+    if url:
+        return redirect(url)
+
+    # Direct download
+    data = download_file(file.stored_name, backend)
+    if data:
+        return send_file(
+            io.BytesIO(data),
+            as_attachment=True,
+            download_name=file.filename,
+            mimetype=file.mime_type or 'application/octet-stream'
+        )
+
+    flash('File not found.', 'danger')
+    return redirect(url_for('files.shared_file', token=token))
+
+
+# ═══════════════════════════════════════
+# IMAGE PREVIEW (returns signed URL)
+# ═══════════════════════════════════════
+@files.route('/preview/<int:file_id>')
+@login_required
+def preview(file_id):
+    """
+    Serve image directly through Flask with inline headers.
+    This prevents B2 presigned URLs from triggering download bar.
+    """
+    file = File.query.get_or_404(file_id)
+
+    if file.user_id != current_user.id:
+        return jsonify({'error': 'Access denied'}), 403
+
+    image_types = ['jpg','jpeg','png','gif','svg','webp']
+    if file.file_type.lower() not in image_types:
+        return jsonify({'error': 'Not an image'}), 400
+
+    backend = getattr(file, 'storage_backend', 'b2') or 'b2'
+
+    # Download image data from B2
+    data = download_file(file.stored_name, backend)
+
+    if data:
+        # Serve image INLINE — this never triggers download bar
+        from flask import Response
+        mime = file.mime_type or f'image/{file.file_type}'
+        response = Response(
+            data,
+            mimetype=mime,
+            headers={
+                # inline = show in browser, NOT download
+                'Content-Disposition': f'inline; filename="{file.filename}"',
+                'Cache-Control': 'private, max-age=3600',
+            }
+        )
+        return response
+
+    return jsonify({'error': 'File not found'}), 404
+
+# ═══════════════════════════════════════
+# TEST B2 CONNECTION (temporary route)
+# ═══════════════════════════════════════
+@files.route('/test-b2')
+def test_b2():
+    """Full B2 connection test"""
+    from app.storage import get_b2_client
+    
+    b2 = get_b2_client()
+    
+    if not b2:
+        return "<h2>❌ B2 client is None — storage.py issue</h2>"
+    
+    try:
+        bucket = current_app.config['B2_BUCKET']
+        result = b2.list_objects_v2(Bucket=bucket)
+        count  = result.get('KeyCount', 0)
+        return f"""
+        <h2>✅ Backblaze B2 Connected!</h2>
+        <p>Bucket: <strong>{bucket}</strong></p>
+        <p>Files in bucket: <strong>{count}</strong></p>
+        <p>Storage: <strong>10 GB Free!</strong></p>
+        <br>
+        <a href="/dashboard">← Go to Dashboard</a>
+        """
+    except Exception as e:
+        return f"<h2>⚠️ Error:</h2><p>{str(e)}</p>"
