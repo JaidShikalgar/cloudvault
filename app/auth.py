@@ -115,29 +115,29 @@ def forgot_password():
         user = User.query.filter_by(email=email).first()
 
         if user:
+            # Generate token
             token = secrets.token_urlsafe(32)
             user.reset_token        = token
             user.reset_token_expiry = datetime.utcnow() + timedelta(minutes=30)
             db.session.commit()
 
+            # Build reset URL
             reset_url = url_for(
                 'auth.reset_password',
                 token=token,
                 _external=True
             )
 
-            try:
-                send_reset_email(user.email, user.username, reset_url)
-            except Exception as e:
-                print(f"Email error: {e}")
-                flash('Could not send email. Try again later.', 'danger')
-                return render_template('forgot_password.html')
+            # Send email in background — never crashes server!
+            send_reset_email(user.email, user.username, reset_url)
 
+        # Always show success — security best practice
         flash(
             '📧 If that email exists, a reset link has been sent! '
             'Check your inbox and spam folder.',
             'success'
         )
+        # Redirect immediately — don't wait for email
         return redirect(url_for('auth.login'))
 
     return render_template('forgot_password.html')
@@ -194,38 +194,38 @@ def reset_password(token):
 # SEND RESET EMAIL HELPER
 # ═══════════════════════════════════════
 def send_reset_email(to_email, username, reset_url):
-    """Send password reset email using Flask-Mail"""
-    msg = Message(
-        subject='🔐 Reset Your CloudVault Password',
-        recipients=[to_email]
-    )
+    """Send password reset email in background thread"""
+    import threading
 
-    # Plain text version
-    msg.body = f"""
+    def send_in_background():
+        # Create app context for background thread
+        from run import app
+        with app.app_context():
+            try:
+                msg = Message(
+                    subject='🔐 Reset Your CloudVault Password',
+                    recipients=[to_email]
+                )
+                msg.body = f"""
 Hi {username},
 
-You requested a password reset for your CloudVault account.
-
-Click this link to reset your password:
+Reset your CloudVault password here:
 {reset_url}
 
-⏰ This link expires in 30 minutes.
+This link expires in 30 minutes.
 
 If you did not request this, ignore this email.
-Your password will not change.
 
 — CloudVault Team
 """
-
-    # HTML version (looks beautiful in email!)
-    msg.html = f"""
+                msg.html = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <style>
         body {{
-            font-family: 'Inter', Arial, sans-serif;
+            font-family: Arial, sans-serif;
             background: #0a0a1a;
             margin: 0;
             padding: 20px;
@@ -278,7 +278,6 @@ Your password will not change.
             border-radius: 12px;
             font-size: 16px;
             font-weight: 700;
-            text-align: center;
         }}
         .btn-wrapper {{
             text-align: center;
@@ -298,7 +297,6 @@ Your password will not change.
             color: #606080;
             font-size: 13px;
             line-height: 1.6;
-            margin-bottom: 8px;
         }}
         .url-box {{
             background: rgba(255,255,255,0.05);
@@ -329,9 +327,8 @@ Your password will not change.
         <div class="body">
             <p class="greeting">Hi {username}! 👋</p>
             <p class="message">
-                We received a request to reset the password for your
-                CloudVault account. Click the button below to create
-                a new password.
+                We received a request to reset your CloudVault password.
+                Click the button below to create a new password.
             </p>
             <div class="btn-wrapper">
                 <a href="{reset_url}" class="btn">
@@ -342,21 +339,25 @@ Your password will not change.
                 ⏰ This link expires in <strong>30 minutes</strong>
             </div>
             <p class="warning">
-                If you didn't request a password reset, you can safely
-                ignore this email. Your password will not change.
+                If you didn't request this, ignore this email.
+                Your password will not change.
             </p>
-            <p class="warning">
-                If the button doesn't work, copy this link:
-            </p>
+            <p class="warning">If the button doesn't work, copy this link:</p>
             <div class="url-box">{reset_url}</div>
         </div>
         <div class="footer">
-            ☁️ CloudVault — Your files, everywhere.<br>
-            This is an automated message, please do not reply.
+            ☁️ CloudVault — Your files, everywhere.
         </div>
     </div>
 </body>
 </html>
 """
-    mail.send(msg)
+                mail.send(msg)
+                print(f"✅ Reset email sent to {to_email}")
+            except Exception as e:
+                print(f"❌ Background email error: {e}")
 
+    # Start background thread — doesn't block main server
+    thread = threading.Thread(target=send_in_background)
+    thread.daemon = True
+    thread.start()
