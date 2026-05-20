@@ -38,3 +38,6 @@ class Config:
     MAIL_USERNAME       = os.getenv('MAIL_EMAIL')
     MAIL_PASSWORD       = os.getenv('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.getenv('MAIL_EMAIL')
+
+    SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
+    MAIL_FROM        = os.getenv('MAIL_FROM')

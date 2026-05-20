@@ -194,31 +194,40 @@ def reset_password(token):
 # SEND RESET EMAIL HELPER
 # ═══════════════════════════════════════
 def send_reset_email(to_email, username, reset_url):
-    """Send password reset email in background thread"""
-    import threading
+    """
+    Send password reset email using SendGrid API.
+    More reliable than Gmail SMTP on cloud servers.
+    """
+    import sendgrid
+    from sendgrid.helpers.mail import Mail, Email, To, Content
 
-    def send_in_background():
-        # Create app context for background thread
-        from run import app
-        with app.app_context():
-            try:
-                msg = Message(
-                    subject='🔐 Reset Your CloudVault Password',
-                    recipients=[to_email]
-                )
-                msg.body = f"""
+    try:
+        api_key  = current_app.config.get('SENDGRID_API_KEY')
+        from_email = current_app.config.get('MAIL_FROM') or \
+                     current_app.config.get('MAIL_USERNAME')
+
+        if not api_key:
+            print("❌ SendGrid API key not found!")
+            raise Exception("SendGrid API key not configured")
+
+        sg = sendgrid.SendGridAPIClient(api_key=api_key)
+
+        # Plain text
+        plain_text = f"""
 Hi {username},
 
-Reset your CloudVault password here:
+Reset your CloudVault password:
 {reset_url}
 
 This link expires in 30 minutes.
 
-If you did not request this, ignore this email.
+If you didn't request this, ignore this email.
 
 — CloudVault Team
 """
-                msg.html = f"""
+
+        # HTML email
+        html_content = f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -226,17 +235,17 @@ If you did not request this, ignore this email.
     <style>
         body {{
             font-family: Arial, sans-serif;
-            background: #0a0a1a;
+            background: #f0f2ff;
             margin: 0;
             padding: 20px;
         }}
         .container {{
             max-width: 560px;
             margin: 0 auto;
-            background: #0f0f2e;
+            background: #ffffff;
             border-radius: 16px;
             overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 32px rgba(79,142,247,0.15);
         }}
         .header {{
             background: linear-gradient(135deg, #4f8ef7, #8b5cf6);
@@ -250,7 +259,7 @@ If you did not request this, ignore this email.
             font-weight: 800;
         }}
         .header p {{
-            color: rgba(255,255,255,0.85);
+            color: rgba(255,255,255,0.9);
             margin: 8px 0 0;
             font-size: 15px;
         }}
@@ -258,16 +267,20 @@ If you did not request this, ignore this email.
             padding: 40px 30px;
         }}
         .greeting {{
-            color: #f0f0ff;
+            color: #1a1a3e;
             font-size: 18px;
             font-weight: 600;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }}
         .message {{
-            color: #a0a0c0;
+            color: #4a4a6a;
             font-size: 15px;
             line-height: 1.7;
-            margin-bottom: 32px;
+            margin-bottom: 28px;
+        }}
+        .btn-wrapper {{
+            text-align: center;
+            margin-bottom: 28px;
         }}
         .btn {{
             display: inline-block;
@@ -279,28 +292,25 @@ If you did not request this, ignore this email.
             font-size: 16px;
             font-weight: 700;
         }}
-        .btn-wrapper {{
-            text-align: center;
-            margin-bottom: 32px;
-        }}
         .expiry {{
-            background: rgba(245,158,11,0.15);
-            border: 1px solid rgba(245,158,11,0.3);
+            background: #fff8e6;
+            border: 1px solid #f59e0b;
             border-radius: 8px;
             padding: 12px 16px;
-            color: #fbbf24;
+            color: #b45309;
             font-size: 13px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             text-align: center;
         }}
         .warning {{
-            color: #606080;
+            color: #9090a0;
             font-size: 13px;
             line-height: 1.6;
+            margin-bottom: 8px;
         }}
         .url-box {{
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: #f0f2ff;
+            border: 1px solid #c7d2fe;
             border-radius: 8px;
             padding: 12px;
             word-break: break-all;
@@ -309,12 +319,12 @@ If you did not request this, ignore this email.
             margin-top: 8px;
         }}
         .footer {{
-            background: rgba(255,255,255,0.03);
+            background: #f8f9ff;
             padding: 20px 30px;
             text-align: center;
-            color: #404060;
+            color: #9090a0;
             font-size: 13px;
-            border-top: 1px solid rgba(255,255,255,0.05);
+            border-top: 1px solid #e8eaff;
         }}
     </style>
 </head>
@@ -339,25 +349,35 @@ If you did not request this, ignore this email.
                 ⏰ This link expires in <strong>30 minutes</strong>
             </div>
             <p class="warning">
-                If you didn't request this, ignore this email.
-                Your password will not change.
+                If you didn't request this, you can safely ignore
+                this email. Your password will not change.
             </p>
-            <p class="warning">If the button doesn't work, copy this link:</p>
+            <p class="warning">
+                If the button doesn't work, copy this link:
+            </p>
             <div class="url-box">{reset_url}</div>
         </div>
         <div class="footer">
-            ☁️ CloudVault — Your files, everywhere.
+            ☁️ CloudVault — Your files, everywhere.<br>
+            This is an automated message, please do not reply.
         </div>
     </div>
 </body>
 </html>
 """
-                mail.send(msg)
-                print(f"✅ Reset email sent to {to_email}")
-            except Exception as e:
-                print(f"❌ Background email error: {e}")
 
-    # Start background thread — doesn't block main server
-    thread = threading.Thread(target=send_in_background)
-    thread.daemon = True
-    thread.start()
+        message = Mail(
+            from_email=from_email,
+            to_emails=to_email,
+            subject='🔐 Reset Your CloudVault Password',
+            html_content=html_content
+        )
+        message.plain_text_content = plain_text
+
+        response = sg.send(message)
+        print(f"✅ SendGrid email sent! Status: {response.status_code}")
+        return True
+
+    except Exception as e:
+        print(f"❌ SendGrid error: {e}")
+        raise e
