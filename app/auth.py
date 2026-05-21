@@ -115,21 +115,22 @@ def forgot_password():
         user = User.query.filter_by(email=email).first()
 
         if user:
-            # Generate token
             token = secrets.token_urlsafe(32)
             user.reset_token        = token
             user.reset_token_expiry = datetime.utcnow() + timedelta(minutes=30)
             db.session.commit()
 
-            # Build reset URL
             reset_url = url_for(
                 'auth.reset_password',
                 token=token,
                 _external=True
             )
 
-            # Send email in background — never crashes server!
-            send_reset_email(user.email, user.username, reset_url)
+            try:
+                send_reset_email(user.email, user.username, reset_url)
+            except Exception as e:
+        # Log error but DON'T crash — show success anyway
+                print(f"Email error (non-fatal): {e}")
 
         # Always show success — security best practice
         flash(
