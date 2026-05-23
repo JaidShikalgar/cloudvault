@@ -275,7 +275,6 @@
     {% else %}
 <div class="file-thumb non-image-thumb"
      onclick="openPreview({{ file.id }}, '{{ file.filename }}')"
-     style="cursor: pointer;"
      title="Click to preview">
     <div class="file-icon-large">{{ file.get_icon() }}</div>
     <span class="file-type-badge">{{ file.file_type.upper() }}</span>
