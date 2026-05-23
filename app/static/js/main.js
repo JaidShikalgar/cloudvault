@@ -234,61 +234,127 @@ function loadThumbnails() {
 // Uses /preview/ route as img src directly
 // No presigned URL = zero download flash!
 // ═══════════════════════════════════════
+// Track current preview file ID globally
+let currentPreviewId = null;
+
+const imageTypes = ['jpg','jpeg','png','gif','webp','svg'];
+const videoTypes = ['mp4','avi','mov','mkv','webm'];
+const audioTypes = ['mp3','wav','flac','ogg'];
+
 function openPreview(fileId, filename) {
+    currentPreviewId = fileId;
+
     const modal     = document.getElementById('previewModal');
-    const img       = document.getElementById('previewImg');
     const loading   = document.getElementById('previewLoading');
-    const noSupport = document.getElementById('previewNoSupport');
     const fnLabel   = document.getElementById('previewFilename');
-    const dlBtn     = document.getElementById('previewDownloadBtn');
+
+    // Elements to hide/show
+    const previewImg     = document.getElementById('previewImg');
+    const previewVideo   = document.getElementById('previewVideo');
+    const previewAudio   = document.getElementById('previewAudio');
+    const previewPdf     = document.getElementById('previewPdf');
+    const previewNoSupport = document.getElementById('previewNoSupport');
 
     if (!modal) return;
 
-    // Setup
-    if (fnLabel)   fnLabel.textContent = filename;
-    if (img)     { img.src = ''; img.classList.add('hidden'); }
-    if (noSupport) noSupport.classList.add('hidden');
-    if (loading)   loading.classList.remove('hidden');
+    // Reset all preview elements
+    [previewImg, previewVideo, previewAudio,
+     previewPdf, previewNoSupport].forEach(el => {
+        if (el) el.classList.add('hidden');
+    });
 
-    // Download button in modal
-    if (dlBtn) {
-        dlBtn.removeAttribute('href');
-        dlBtn.onclick = (e) => {
-            e.preventDefault();
-            triggerDownload(fileId);
-        };
+    // Reset sources
+    if (previewImg)   previewImg.src = '';
+    if (previewVideo) {
+        previewVideo.pause();
+        previewVideo.src = '';
     }
+
+    // Setup
+    if (fnLabel)  fnLabel.textContent = filename;
+    if (loading)  loading.classList.remove('hidden');
 
     // Show modal
     modal.classList.remove('hidden');
 
-    // Set image src to our Flask proxy route
-    // /preview/<id> returns image with inline headers
-    // This NEVER triggers download bar!
-    if (img) {
-        img.onload = () => {
-            if (loading) loading.classList.add('hidden');
-            img.classList.remove('hidden');
-        };
-        img.onerror = () => {
-            if (loading)   loading.classList.add('hidden');
-            if (noSupport) noSupport.classList.remove('hidden');
-        };
-        // Direct image URL — no JSON fetch needed
-        img.src = `/preview/${fileId}`;
+    // Get file extension from filename
+    const ext = filename.split('.').pop().toLowerCase();
+
+    if (imageTypes.includes(ext)) {
+        // ── Image: load directly ──
+        if (previewImg) {
+            previewImg.onload = () => {
+                if (loading) loading.classList.add('hidden');
+                previewImg.classList.remove('hidden');
+            };
+            previewImg.onerror = () => {
+                if (loading) loading.classList.add('hidden');
+                if (previewNoSupport) previewNoSupport.classList.remove('hidden');
+            };
+            previewImg.src = `/preview/${fileId}`;
+        }
+
+    } else if (videoTypes.includes(ext) || audioTypes.includes(ext) || ext === 'pdf') {
+        // ── Video/Audio/PDF: get presigned URL ──
+        fetch(`/preview/${fileId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (loading) loading.classList.add('hidden');
+
+                if (data.error) {
+                    if (previewNoSupport) previewNoSupport.classList.remove('hidden');
+                    return;
+                }
+
+                const url = data.url;
+
+                if (videoTypes.includes(ext) && previewVideo) {
+                    // Video player
+                    const source = document.getElementById('previewVideoSrc');
+                    if (source) source.src = url;
+                    previewVideo.load();
+                    previewVideo.classList.remove('hidden');
+
+                } else if (audioTypes.includes(ext) && previewAudio) {
+                    // Audio player
+                    const source = document.getElementById('previewAudioSrc');
+                    if (source) source.src = url;
+                    previewAudio.querySelector('audio').load();
+                    previewAudio.classList.remove('hidden');
+
+                } else if (ext === 'pdf' && previewPdf) {
+                    // PDF viewer
+                    previewPdf.src = url;
+                    previewPdf.classList.remove('hidden');
+                } else {
+                    if (previewNoSupport) previewNoSupport.classList.remove('hidden');
+                }
+            })
+            .catch(() => {
+                if (loading) loading.classList.add('hidden');
+                if (previewNoSupport) previewNoSupport.classList.remove('hidden');
+            });
+
+    } else {
+        // ── Unsupported type ──
+        if (loading) loading.classList.add('hidden');
+        if (previewNoSupport) previewNoSupport.classList.remove('hidden');
     }
 }
 
 function closePreview() {
     const modal = document.getElementById('previewModal');
-    const img   = document.getElementById('previewImg');
+    const video = document.getElementById('previewVideo');
+    const audio = document.querySelector('#previewAudio audio');
+
+    // Stop media playback
+    if (video) { video.pause(); video.src = ''; }
+    if (audio) { audio.pause(); audio.src = ''; }
+
     if (modal) modal.classList.add('hidden');
-    if (img)   img.src = '';
+    currentPreviewId = null;
 }
 
-document.getElementById('previewModal')?.addEventListener('click', function(e) {
-    if (e.target === this) closePreview();
-});
 
 // ═══════════════════════════════════════
 // SHARE TOGGLE

@@ -336,39 +336,51 @@ def download_shared(token):
 @login_required
 def preview(file_id):
     """
-    Serve image directly through Flask with inline headers.
-    This prevents B2 presigned URLs from triggering download bar.
+    Serve files inline for preview.
+    Images: served directly through Flask
+    Videos/PDFs/Others: redirect to presigned URL
     """
     file = File.query.get_or_404(file_id)
 
     if file.user_id != current_user.id:
         return jsonify({'error': 'Access denied'}), 403
 
-    image_types = ['jpg','jpeg','png','gif','svg','webp']
-    if file.file_type.lower() not in image_types:
-        return jsonify({'error': 'Not an image'}), 400
-
     backend = getattr(file, 'storage_backend', 'b2') or 'b2'
+    file_type = file.file_type.lower()
 
-    # Download image data from B2
-    data = download_file(file.stored_name, backend)
+    image_types = ['jpg','jpeg','png','gif','svg','webp']
+    video_types = ['mp4','avi','mov','mkv','webm']
+    audio_types = ['mp3','wav','flac','ogg']
 
-    if data:
-        # Serve image INLINE — this never triggers download bar
-        from flask import Response
-        mime = file.mime_type or f'image/{file.file_type}'
-        response = Response(
-            data,
-            mimetype=mime,
-            headers={
-                # inline = show in browser, NOT download
-                'Content-Disposition': f'inline; filename="{file.filename}"',
-                'Cache-Control': 'private, max-age=3600',
-            }
-        )
-        return response
+    if file_type in image_types:
+        # Serve image directly — no download flash
+        data = download_file(file.stored_name, backend)
+        if data:
+            from flask import Response
+            mime = file.mime_type or f'image/{file_type}'
+            return Response(
+                data,
+                mimetype=mime,
+                headers={
+                    'Content-Disposition': f'inline; filename="{file.filename}"',
+                    'Cache-Control': 'private, max-age=3600',
+                }
+            )
+        return jsonify({'error': 'File not found'}), 404
 
-    return jsonify({'error': 'File not found'}), 404
+    elif file_type in video_types or file_type in audio_types or file_type == 'pdf':
+        # Return presigned URL for video/audio/PDF
+        url = get_presigned_url(file.stored_name, backend, expires=3600)
+        if url:
+            return jsonify({'url': url, 'type': file_type})
+        return jsonify({'error': 'Preview not available'}), 400
+
+    else:
+        # Other file types — return presigned URL
+        url = get_presigned_url(file.stored_name, backend, expires=3600)
+        if url:
+            return jsonify({'url': url, 'type': file_type})
+        return jsonify({'error': 'Preview not available'}), 400
 
 # ═══════════════════════════════════════
 # TEST B2 CONNECTION (temporary route)

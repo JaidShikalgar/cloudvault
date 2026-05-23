@@ -273,11 +273,17 @@
         <span class="file-type-badge">{{ file.file_type.upper() }}</span>
     </div>
     {% else %}
-    <div class="file-thumb non-image-thumb">
-        <div class="file-icon-large">{{ file.get_icon() }}</div>
-        <span class="file-type-badge">{{ file.file_type.upper() }}</span>
+<div class="file-thumb non-image-thumb"
+     onclick="openPreview({{ file.id }}, '{{ file.filename }}')"
+     style="cursor: pointer;"
+     title="Click to preview">
+    <div class="file-icon-large">{{ file.get_icon() }}</div>
+    <span class="file-type-badge">{{ file.file_type.upper() }}</span>
+    <div class="preview-overlay">
+        <i class="fas fa-eye"></i>
     </div>
-    {% endif %}
+</div>
+{% endif %}
 
     <!-- FILE INFO -->
     <div class="file-info">
@@ -378,31 +384,69 @@
 </div>
 
 <!-- ═══ IMAGE PREVIEW MODAL ═══ -->
+<!-- ═══ FILE PREVIEW MODAL ═══ -->
 <div class="modal-overlay hidden" id="previewModal">
     <div class="preview-modal">
         <div class="preview-header">
             <h3 id="previewFilename">Preview</h3>
             <div class="preview-actions">
-                <a href="#" id="previewDownloadBtn"
-                   class="btn btn-primary btn-sm">
+                <button type="button"
+                        id="previewDownloadBtn"
+                        class="btn btn-primary btn-sm"
+                        onclick="triggerDownload(currentPreviewId)">
                     <i class="fas fa-download"></i> Download
-                </a>
-                <button onclick="closePreview()" class="modal-close">
+                </button>
+                <button onclick="closePreview()"
+                        class="modal-close">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
         </div>
-        <div class="preview-body">
+        <div class="preview-body" id="previewBody">
+            <!-- Loading -->
             <div class="preview-loading" id="previewLoading">
                 <i class="fas fa-spinner fa-spin"></i>
                 <p>Loading preview...</p>
             </div>
-            <img id="previewImg" src="" alt=""
+
+            <!-- Image Preview -->
+            <img id="previewImg"
+                 src="" alt=""
                  class="preview-image hidden">
+
+            <!-- Video Preview -->
+            <video id="previewVideo"
+                   class="preview-video hidden"
+                   controls
+                   controlsList="nodownload">
+                <source id="previewVideoSrc" src="" type="video/mp4">
+                Your browser does not support video playback.
+            </video>
+
+            <!-- Audio Preview -->
+            <div id="previewAudio" class="preview-audio hidden">
+                <div class="audio-icon">🎵</div>
+                <audio controls controlsList="nodownload" style="width:100%">
+                    <source id="previewAudioSrc" src="" type="audio/mpeg">
+                </audio>
+            </div>
+
+            <!-- PDF Preview -->
+            <iframe id="previewPdf"
+                    class="preview-pdf hidden"
+                    src=""
+                    frameborder="0">
+            </iframe>
+
+            <!-- No Support -->
             <div id="previewNoSupport"
                  class="preview-no-support hidden">
                 <i class="fas fa-file"></i>
                 <p>Preview not available for this file type</p>
+                <button class="btn btn-primary"
+                        onclick="triggerDownload(currentPreviewId)">
+                    <i class="fas fa-download"></i> Download Instead
+                </button>
             </div>
         </div>
     </div>
