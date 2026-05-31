@@ -253,25 +253,24 @@
 
     <!-- PREVIEW ZONE — only for images -->
     {% if file.file_type in ['jpg','jpeg','png','gif','webp'] %}
-    <div class="file-thumb image-thumb">
-        <div class="preview-trigger"
-             onclick="openPreview({{ file.id }}, '{{ file.filename }}')">
-            <img src=""
-                 alt="{{ file.filename }}"
-                 class="thumb-img"
-                 data-file-id="{{ file.id }}"
-                 onerror="this.style.display='none';
-                          this.nextElementSibling.style.display='flex'">
-            <div class="thumb-icon-fallback" style="display:none">
-                {{ file.get_icon() }}
-            </div>
-            <div class="preview-overlay">
-                <i class="fas fa-eye"></i>
-                <span>Preview</span>
-            </div>
+<div class="file-thumb image-thumb">
+    <div class="preview-trigger"
+         onclick="openPreview({{ file.id }}, '{{ file.filename }}'); return false;">
+        <img src=""
+             alt="{{ file.filename }}"
+             class="thumb-img"
+             data-file-id="{{ file.id }}"
+             onerror="this.style.display='none';
+                      this.nextElementSibling.style.display='flex'">
+        <div class="thumb-icon-fallback" style="display:none">
+            {{ file.get_icon() }}
         </div>
-        <span class="file-type-badge">{{ file.file_type.upper() }}</span>
+        <div class="preview-overlay">
+            <i class="fas fa-eye"></i>
+        </div>
     </div>
+    <span class="file-type-badge">{{ file.file_type.upper() }}</span>
+</div>
     {% else %}
 <div class="file-thumb non-image-thumb"
      onclick="openPreview({{ file.id }}, '{{ file.filename }}')"
@@ -415,11 +414,10 @@
 
             <!-- Video Preview -->
             <video id="previewVideo"
-                   class="preview-video hidden"
-                   controls
-                   controlsList="nodownload">
-                <source id="previewVideoSrc" src="" type="video/mp4">
-                Your browser does not support video playback.
+                    class="preview-video hidden"
+                    controls
+                    controlsList="nodownload"
+                    playsinline>
             </video>
 
             <!-- Audio Preview -->

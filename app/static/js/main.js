@@ -1,490 +1,631 @@
-{% extends 'base.html' %}
-{% block title %}Dashboard — CloudVault{% endblock %}
+// -*- coding: utf-8 -*-
+// app/static/js/main.js
+// CloudVault — Complete JavaScript
 
-{% block content %}
-<div class="dashboard">
+// ═══════════════════════════════════════
+// THEME / DARK MODE
+// ═══════════════════════════════════════
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon   = document.getElementById('themeIcon');
+const html        = document.documentElement;
+const savedTheme  = localStorage.getItem('cv_theme') || 'dark';
 
-    <!-- Overlay for mobile sidebar -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+html.setAttribute('data-theme', savedTheme);
+updateThemeIcon(savedTheme);
 
-    <!-- ═══ SIDEBAR ═══ -->
-    <aside class="sidebar" id="sidebar">
+if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark'
+                     ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('cv_theme', next);
+        updateThemeIcon(next);
+    });
+}
 
-        <!-- User Info -->
-        <div class="sidebar-user">
-            <div class="user-avatar">
-                {{ current_user.username[0].upper() }}
-            </div>
-            <div class="user-info">
-                <span class="user-name">{{ current_user.username }}</span>
-                <span class="user-email">{{ current_user.email }}</span>
-            </div>
-        </div>
+function updateThemeIcon(theme) {
+    if (!themeIcon) return;
+    themeIcon.className = theme === 'dark'
+                          ? 'fas fa-sun'
+                          : 'fas fa-moon';
+}
 
-        <!-- Storage Bar -->
-        <div class="storage-section">
-            <div class="storage-header">
-                <span><i class="fas fa-hdd"></i> Storage</span>
-                <span class="storage-numbers">
-                    {{ storage_used_mb }} MB / {{ storage_limit_mb }} MB
-                </span>
-            </div>
-            <div class="storage-bar">
-                <div class="storage-fill
-                    {% if storage_percent > 80 %}storage-danger
-                    {% elif storage_percent > 50 %}storage-warning
-                    {% endif %}"
-                    style="width: 0%"
-                    data-percent="{{ storage_percent }}">
-                </div>
-            </div>
-            <div class="storage-footer">
-                <small>{{ storage_percent }}% used</small>
-                <small>{{ (storage_limit_mb - storage_used_mb)|round(1) }} MB free</small>
-            </div>
-        </div>
-
-        <!-- File Type Filters -->
-        <div class="filter-section">
-            <p class="filter-label">BROWSE BY TYPE</p>
-
-            <a href="{{ url_for('files.dashboard', q=search_query, sort=sort_by, type='all') }}"
-               class="filter-link {% if file_type == 'all' %}active{% endif %}">
-                <i class="fas fa-th"></i>
-                All Files
-                <span class="filter-count">{{ total_count }}</span>
-            </a>
-
-            <a href="{{ url_for('files.dashboard', q=search_query, sort=sort_by, type='image') }}"
-               class="filter-link {% if file_type == 'image' %}active{% endif %}">
-                <i class="fas fa-image"></i>
-                Images
-                <span class="filter-count">{{ image_count }}</span>
-            </a>
-
-            <a href="{{ url_for('files.dashboard', q=search_query, sort=sort_by, type='document') }}"
-               class="filter-link {% if file_type == 'document' %}active{% endif %}">
-                <i class="fas fa-file-alt"></i>
-                Documents
-                <span class="filter-count">{{ doc_count }}</span>
-            </a>
-
-            <a href="{{ url_for('files.dashboard', q=search_query, sort=sort_by, type='video') }}"
-               class="filter-link {% if file_type == 'video' %}active{% endif %}">
-                <i class="fas fa-video"></i>
-                Videos
-                <span class="filter-count">{{ video_count }}</span>
-            </a>
-        </div>
-
-        <!-- Sidebar Nav -->
-        <nav class="sidebar-nav">
-            <a href="{{ url_for('files.dashboard') }}" class="sidebar-link active">
-                <i class="fas fa-th-large"></i> Dashboard
-            </a>
-            <a href="{{ url_for('profile.profile_page') }}" class="sidebar-link">
-                <i class="fas fa-user"></i> Profile
-            </a>
-            <a href="{{ url_for('auth.logout') }}" class="sidebar-link sidebar-logout">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </a>
-        </nav>
-
-    </aside>
-
-    <!-- ═══ MAIN CONTENT ═══ -->
-    <div class="dashboard-main">
-
-        <!-- Top Bar -->
-        <div class="dashboard-topbar">
-
-            <!-- Mobile sidebar toggle -->
-            <button class="mobile-menu-btn" onclick="toggleSidebar()">
-                <i class="fas fa-bars"></i>
-            </button>
-
-            <!-- Search -->
-            <form action="{{ url_for('files.dashboard') }}"
-                  method="GET" class="search-wrapper">
-                <input type="hidden" name="sort" value="{{ sort_by }}">
-                <input type="hidden" name="type" value="{{ file_type }}">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" name="q"
-                           placeholder="Search your files..."
-                           value="{{ search_query }}"
-                           class="search-input"
-                           id="searchInput">
-                    {% if search_query %}
-                    <a href="{{ url_for('files.dashboard') }}" class="search-clear">
-                        <i class="fas fa-times"></i>
-                    </a>
-                    {% endif %}
-                </div>
-            </form>
-
-            <!-- Sort Buttons -->
-            <div class="sort-wrapper">
-                <div class="sort-buttons">
-                    <a href="{{ url_for('files.dashboard', q=search_query, sort='date', type=file_type) }}"
-                       class="sort-btn {% if sort_by=='date' %}active{% endif %}">
-                        <i class="fas fa-clock"></i>
-                        <span>Newest</span>
-                    </a>
-                    <a href="{{ url_for('files.dashboard', q=search_query, sort='name', type=file_type) }}"
-                       class="sort-btn {% if sort_by=='name' %}active{% endif %}">
-                        <i class="fas fa-font"></i>
-                        <span>Name</span>
-                    </a>
-                    <a href="{{ url_for('files.dashboard', q=search_query, sort='size', type=file_type) }}"
-                       class="sort-btn {% if sort_by=='size' %}active{% endif %}">
-                        <i class="fas fa-weight-hanging"></i>
-                        <span>Size</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Upload Button -->
-            <button class="btn btn-primary upload-btn"
-                    onclick="document.getElementById('fileInput').click()">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <span>Upload</span>
-            </button>
-
-            <!-- Hidden Upload Form -->
-            <form id="uploadForm"
-                  action="{{ url_for('files.upload') }}"
-                  method="POST"
-                  enctype="multipart/form-data"
-                  style="display:none;">
-                <input type="file" id="fileInput" name="file" multiple
-                       onchange="handleFileSelect(this)">
-            </form>
-        </div>
-
-        <!-- Upload Progress Bar -->
-        <div class="upload-progress hidden" id="uploadProgress">
-            <div class="upload-progress-bar">
-                <div class="upload-fill" id="uploadFill"></div>
-            </div>
-            <span id="uploadText">Uploading...</span>
-        </div>
-
-        <!-- Drag & Drop Zone -->
-        <div class="drop-zone" id="dropZone">
-            <div class="drop-zone-content">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <p>Drag & Drop files here to upload</p>
-                <small>Supports all file types • Max 500MB each • 10GB total</small>
-            </div>
-        </div>
-
-        <!-- ═══ RECENT FILES ═══ -->
-        {% if recent_files and not search_query and file_type == 'all' %}
-        <div class="section">
-            <div class="section-header">
-                <h2 class="section-heading">
-                    <i class="fas fa-clock"></i> Recent Files
-                </h2>
-            </div>
-            <div class="recent-grid">
-                {% for file in recent_files %}
-                <div class="recent-card"
-                     onclick="openPreview({{ file.id }}, '{{ file.filename }}')">
-                    <div class="recent-thumb">
-                        {% if file.file_type in ['jpg','jpeg','png','gif','webp'] %}
-                            <img src=""
-                                 alt="{{ file.filename }}"
-                                 class="thumb-img"
-                                 data-file-id="{{ file.id }}"
-                                 onerror="this.style.display='none';
-                                          this.nextElementSibling.style.display='flex'">
-                            <div class="thumb-icon-fallback" style="display:none">
-                                {{ file.get_icon() }}
-                            </div>
-                        {% else %}
-                            <div class="thumb-icon">{{ file.get_icon() }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="recent-info">
-                        <p class="recent-name" title="{{ file.filename }}">
-                            {{ file.filename }}
-                        </p>
-                        <span class="recent-meta">{{ file.get_size_display() }}</span>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- ═══ ALL FILES ═══ -->
-        <div class="section">
-            <div class="section-header">
-                <h2 class="section-heading">
-                    <i class="fas fa-folder-open"></i>
-                    {% if search_query %}
-                        Results for "{{ search_query }}"
-                    {% elif file_type != 'all' %}
-                        {{ file_type|capitalize }}s
-                    {% else %}
-                        All Files
-                    {% endif %}
-                    <span class="file-count-badge">{{ files|length }}</span>
-                </h2>
-
-                <!-- Grid / List toggle -->
-                <div class="view-toggle">
-                    <button class="view-btn active" id="gridViewBtn"
-                            onclick="setView('grid')" title="Grid view">
-                        <i class="fas fa-th"></i>
-                    </button>
-                    <button class="view-btn" id="listViewBtn"
-                            onclick="setView('list')" title="List view">
-                        <i class="fas fa-list"></i>
-                    </button>
-                </div>
-            </div>
-
-            {% if files %}
-            <div class="files-grid" id="filesGrid">
-                {% for file in files %}
-                <div class="file-card" data-file-id="{{ file.id }}">
-
-                    <!-- IMAGE Thumbnail -->
-                    {% if file.file_type in ['jpg','jpeg','png','gif','webp'] %}
-                    <div class="file-thumb image-thumb">
-                        <div class="preview-trigger"
-                             onclick="openPreview({{ file.id }}, '{{ file.filename }}')">
-                            <img src=""
-                                 alt="{{ file.filename }}"
-                                 class="thumb-img"
-                                 data-file-id="{{ file.id }}"
-                                 onerror="this.style.display='none';
-                                          this.nextElementSibling.style.display='flex'">
-                            <div class="thumb-icon-fallback" style="display:none">
-                                {{ file.get_icon() }}
-                            </div>
-                            <div class="preview-overlay">
-                                <i class="fas fa-eye"></i>
-                            </div>
-                        </div>
-                        <span class="file-type-badge">{{ file.file_type.upper() }}</span>
-                    </div>
-
-                    <!-- NON-IMAGE Thumbnail (PDF, Video, Audio, etc) -->
-                    {% else %}
-                    <div class="file-thumb non-image-thumb"
-                         onclick="openPreview({{ file.id }}, '{{ file.filename }}')"
-                         title="Click to preview">
-                        <div class="file-icon-large">{{ file.get_icon() }}</div>
-                        <span class="file-type-badge">{{ file.file_type.upper() }}</span>
-                        <div class="preview-overlay">
-                            <i class="fas fa-eye"></i>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- File Info -->
-                    <div class="file-info">
-                        <p class="file-name" title="{{ file.filename }}">
-                            {{ file.filename }}
-                        </p>
-                        <div class="file-meta-row">
-                            <span class="file-size">{{ file.get_size_display() }}</span>
-                            <span class="file-date">
-                                {{ file.uploaded_at.strftime('%d %b %Y') }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="file-actions">
-
-                        <!-- DOWNLOAD -->
-                        <button type="button"
-                                class="action-btn btn-download"
-                                title="Download"
-                                onclick="triggerDownload({{ file.id }})">
-                            <i class="fas fa-download"></i>
-                        </button>
-
-                        <!-- SHARE -->
-                        <button type="button"
-                                class="action-btn btn-share
-                                {% if file.is_shared %}shared-active{% endif %}"
-                                onclick="toggleShare({{ file.id }}, this)"
-                                title="Share">
-                            <i class="fas fa-share-alt"></i>
-                        </button>
-
-                        <!-- DELETE -->
-                        <form method="POST"
-                              action="{{ url_for('files.delete', file_id=file.id) }}"
-                              onsubmit="return confirmDelete('{{ file.filename }}')">
-                            <button type="submit"
-                                    class="action-btn btn-delete"
-                                    title="Delete">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
-
-                    </div>
-
-                    <!-- Share Link Box -->
-                    <div class="share-link-box
-                         {% if not file.is_shared %}hidden{% endif %}"
-                         id="share-{{ file.id }}">
-                        <input type="text" readonly class="share-input"
-                               value="{% if file.is_shared and file.share_token %}{{ url_for('files.shared_file', token=file.share_token, _external=True) }}{% endif %}">
-                        <button type="button"
-                                onclick="copyShareLink({{ file.id }})"
-                                class="copy-btn">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-
-                </div>
-                {% endfor %}
-            </div>
-
-            {% else %}
-            <!-- Empty State -->
-            <div class="empty-state">
-                <div class="empty-icon">
-                    {% if search_query %}
-                        <i class="fas fa-search"></i>
-                    {% else %}
-                        <i class="fas fa-cloud-upload-alt"></i>
-                    {% endif %}
-                </div>
-                {% if search_query %}
-                    <h3>No files found</h3>
-                    <p>No files match "{{ search_query }}"</p>
-                    <a href="{{ url_for('files.dashboard') }}"
-                       class="btn btn-outline">Clear Search</a>
-                {% elif file_type != 'all' %}
-                    <h3>No {{ file_type }}s yet</h3>
-                    <p>Upload some {{ file_type }} files to see them here</p>
-                {% else %}
-                    <h3>Your vault is empty</h3>
-                    <p>Upload your first file to get started!</p>
-                    <button class="btn btn-primary"
-                            onclick="document.getElementById('fileInput').click()">
-                        <i class="fas fa-upload"></i> Upload First File
-                    </button>
-                {% endif %}
-            </div>
-            {% endif %}
-
-        </div>
-    </div>
-</div>
-
-<!-- ═══ FILE PREVIEW MODAL ═══ -->
-<div class="modal-overlay hidden" id="previewModal">
-    <div class="preview-modal">
-        <div class="preview-header">
-            <h3 id="previewFilename">Preview</h3>
-            <div class="preview-actions">
-                <button type="button"
-                        class="btn btn-primary btn-sm"
-                        onclick="triggerDownload(currentPreviewId)">
-                    <i class="fas fa-download"></i> Download
-                </button>
-                <button onclick="closePreview()" class="modal-close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-        <div class="preview-body">
-
-            <!-- Loading Spinner -->
-            <div class="preview-loading" id="previewLoading">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading preview...</p>
-            </div>
-
-            <!-- Image Preview -->
-            <img id="previewImg" src="" alt=""
-                 class="preview-image hidden">
-
-            <!-- Video Preview -->
-            <video id="previewVideo"
-                   class="preview-video hidden"
-                   controls controlsList="nodownload">
-                <source id="previewVideoSrc" src="" type="video/mp4">
-                Your browser does not support video playback.
-            </video>
-
-            <!-- Audio Preview -->
-            <div id="previewAudio" class="preview-audio hidden">
-                <div class="audio-icon">🎵</div>
-                <audio controls style="width:100%">
-                    <source id="previewAudioSrc" src="">
-                </audio>
-            </div>
-
-            <!-- PDF Preview -->
-            <iframe id="previewPdf"
-                    class="preview-pdf hidden"
-                    src="" frameborder="0">
-            </iframe>
-
-            <!-- No Support -->
-            <div id="previewNoSupport"
-                 class="preview-no-support hidden">
-                <i class="fas fa-file"></i>
-                <p>Preview not available for this file type</p>
-                <button class="btn btn-primary"
-                        onclick="triggerDownload(currentPreviewId)">
-                    <i class="fas fa-download"></i> Download Instead
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-<!-- ═══ SHARE MODAL ═══ -->
-<div class="modal-overlay hidden" id="shareModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3><i class="fas fa-share-alt"></i> Share File</h3>
-            <button onclick="closeShareModal()" class="modal-close">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <p>Anyone with this link can download the file:</p>
-            <div class="share-link-display">
-                <input type="text" id="modalShareLink"
-                       readonly class="form-input">
-                <button onclick="copyModalLink()"
-                        class="btn btn-primary">
-                    <i class="fas fa-copy"></i>
-                </button>
-            </div>
-            <p class="share-tip">
-                <i class="fas fa-info-circle"></i>
-                Click the share button again to stop sharing.
-            </p>
-        </div>
-    </div>
-</div>
-
-<!-- Silent Download iframe -->
-<iframe id="downloadFrame"
-        style="display:none;width:0;height:0;
-               border:none;position:absolute;">
-</iframe>
-
-{% endblock %}
-
-{% block scripts %}
-<script>
+// ═══════════════════════════════════════
+// PAGE LOAD
+// ═══════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+
+    // Animate storage bar
+    const fill = document.querySelector('.storage-fill');
+    if (fill) {
+        const pct = fill.getAttribute('data-percent') || '0';
+        setTimeout(() => { fill.style.width = pct + '%'; }, 400);
+    }
+
+    // Animate profile storage bar
+    const fillLarge = document.querySelector('.storage-fill-large');
+    if (fillLarge) {
+        const pct = fillLarge.getAttribute('data-percent') || '0';
+        setTimeout(() => { fillLarge.style.width = pct + '%'; }, 400);
+    }
+
+    // Restore saved view mode
+    const savedView = localStorage.getItem('cv_view') || 'grid';
+    if (savedView === 'list') setView('list');
+
+    // Load image thumbnails
     loadThumbnails();
+
+    // Animate file cards
+    document.querySelectorAll('.file-card').forEach((card, i) => {
+        card.style.animationDelay = `${i * 0.05}s`;
+    });
 });
-</script>
-{% endblock %}
+
+// ═══════════════════════════════════════
+// FLASH MESSAGES — auto dismiss
+// ═══════════════════════════════════════
+document.querySelectorAll('.flash').forEach((flash, i) => {
+    setTimeout(() => {
+        flash.style.opacity      = '0';
+        flash.style.transform    = 'translateX(110%)';
+        flash.style.transition   = 'all 0.4s ease';
+        setTimeout(() => flash.remove(), 420);
+    }, 4000 + (i * 500));
+});
+
+// ═══════════════════════════════════════
+// PASSWORD TOGGLE — show/hide password
+// ═══════════════════════════════════════
+function togglePassword(fieldId) {
+    const field = document.getElementById(fieldId);
+    const icon  = document.getElementById(fieldId + '-eye');
+    if (!field) return;
+    if (field.type === 'password') {
+        field.type = 'text';
+        if (icon) icon.className = 'fas fa-eye-slash';
+    } else {
+        field.type = 'password';
+        if (icon) icon.className = 'fas fa-eye';
+    }
+}
+
+// ═══════════════════════════════════════
+// DELETE CONFIRMATION
+// ═══════════════════════════════════════
+function confirmDelete(filename) {
+    return confirm(`Delete "${filename}"?\nThis cannot be undone.`);
+}
+
+// ═══════════════════════════════════════
+// SORT FILES
+// ═══════════════════════════════════════
+function changeSort(value) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('sort', value);
+    window.location.href = url.toString();
+}
+
+// ═══════════════════════════════════════
+// VIEW TOGGLE — Grid / List
+// ═══════════════════════════════════════
+function setView(type) {
+    const grid    = document.getElementById('filesGrid');
+    const gridBtn = document.getElementById('gridViewBtn');
+    const listBtn = document.getElementById('listViewBtn');
+    if (!grid) return;
+
+    if (type === 'list') {
+        grid.classList.add('list-view');
+        listBtn?.classList.add('active');
+        gridBtn?.classList.remove('active');
+        localStorage.setItem('cv_view', 'list');
+    } else {
+        grid.classList.remove('list-view');
+        gridBtn?.classList.add('active');
+        listBtn?.classList.remove('active');
+        localStorage.setItem('cv_view', 'grid');
+    }
+}
+
+// ═══════════════════════════════════════
+// FILE UPLOAD — with progress bar
+// ═══════════════════════════════════════
+function handleFileSelect(input) {
+    if (!input.files.length) return;
+
+    const progress = document.getElementById('uploadProgress');
+    const fill     = document.getElementById('uploadFill');
+    const text     = document.getElementById('uploadText');
+
+    if (progress) {
+        progress.classList.remove('hidden');
+        let pct = 0;
+
+        if (text) {
+            text.textContent =
+                `Uploading ${input.files.length} file(s)...`;
+        }
+
+        const interval = setInterval(() => {
+            pct = Math.min(pct + Math.random() * 15, 90);
+            if (fill) fill.style.width = pct + '%';
+        }, 200);
+
+        setTimeout(() => {
+            clearInterval(interval);
+            if (fill) fill.style.width = '100%';
+            if (text) text.textContent = 'Processing...';
+            document.getElementById('uploadForm')?.submit();
+        }, 800);
+
+    } else {
+        document.getElementById('uploadForm')?.submit();
+    }
+}
+
+// ═══════════════════════════════════════
+// DRAG & DROP UPLOAD
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    const dropZone  = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    if (!dropZone || !fileInput) return;
+
+    // Prevent default browser behavior
+    ['dragenter','dragover','dragleave','drop'].forEach(ev => {
+        dropZone.addEventListener(ev, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        document.body.addEventListener(ev, e => {
+            e.preventDefault();
+        });
+    });
+
+    // Highlight drop zone
+    ['dragenter','dragover'].forEach(ev => {
+        dropZone.addEventListener(ev, () => {
+            dropZone.classList.add('drag-over');
+        });
+    });
+
+    ['dragleave','drop'].forEach(ev => {
+        dropZone.addEventListener(ev, () => {
+            dropZone.classList.remove('drag-over');
+        });
+    });
+
+    // Handle file drop
+    dropZone.addEventListener('drop', e => {
+        const droppedFiles = e.dataTransfer.files;
+        if (!droppedFiles.length) return;
+
+        // Transfer dropped files to file input
+        const dt = new DataTransfer();
+        Array.from(droppedFiles).forEach(f => dt.items.add(f));
+        fileInput.files = dt.files;
+
+        // Show progress and submit
+        handleFileSelect(fileInput);
+    });
+
+    // Click drop zone to open file picker
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+});
+
+// ═══════════════════════════════════════
+// DOWNLOAD — via hidden iframe (silent)
+// ═══════════════════════════════════════
+let currentPreviewId = null;
+
+function triggerDownload(fileId) {
+    if (!fileId) return;
+
+    let frame = document.getElementById('downloadFrame');
+    if (!frame) {
+        frame = document.createElement('iframe');
+        frame.id = 'downloadFrame';
+        frame.style.cssText =
+            'display:none;width:0;height:0;border:none;position:absolute;';
+        document.body.appendChild(frame);
+    }
+
+    setTimeout(() => {
+        frame.src = `/download/${fileId}?t=${Date.now()}`;
+    }, 50);
+}
+
+// ═══════════════════════════════════════
+// LOAD IMAGE THUMBNAILS
+// ═══════════════════════════════════════
+async function loadThumbnails() {
+    const imgs = document.querySelectorAll('.thumb-img[data-file-id]');
+
+    for (const img of imgs) {
+        const fileId = img.getAttribute('data-file-id');
+        try {
+            img.src = `/preview/${fileId}`;
+            img.onload = () => {
+                img.style.display = 'block';
+                const fallback = img.nextElementSibling;
+                if (fallback) fallback.style.display = 'none';
+            };
+            img.onerror = () => {
+                img.style.display = 'none';
+                const fallback = img.nextElementSibling;
+                if (fallback) fallback.style.display = 'flex';
+            };
+        } catch (e) {
+            img.style.display = 'none';
+            const fallback = img.nextElementSibling;
+            if (fallback) fallback.style.display = 'flex';
+        }
+    }
+}
+
+// ═══════════════════════════════════════
+// FILE PREVIEW MODAL
+// ═══════════════════════════════════════
+const imageTypes = ['jpg','jpeg','png','gif','webp','svg'];
+const videoTypes = ['mp4','avi','mov','mkv','webm'];
+const audioTypes = ['mp3','wav','flac','ogg'];
+
+function openPreview(fileId, filename) {
+    // Prevent default browser behavior
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    currentPreviewId = fileId;
+
+    const modal          = document.getElementById('previewModal');
+    const loading        = document.getElementById('previewLoading');
+    const fnLabel        = document.getElementById('previewFilename');
+    const previewImg     = document.getElementById('previewImg');
+    const previewVideo   = document.getElementById('previewVideo');
+    const previewAudio   = document.getElementById('previewAudio');
+    const previewPdf     = document.getElementById('previewPdf');
+    const previewNoSupport = document.getElementById('previewNoSupport');
+
+    if (!modal) {
+        console.error('previewModal not found in HTML!');
+        return;
+    }
+
+    // Reset all preview elements
+    [previewImg, previewVideo, previewAudio,
+     previewPdf, previewNoSupport].forEach(el => {
+        if (el) el.classList.add('hidden');
+    });
+
+    if (previewVideo) {
+        previewVideo.pause();
+        previewVideo.removeAttribute('src');
+        previewVideo.load();
+    }
+
+    if (fnLabel) fnLabel.textContent = filename;
+    if (loading) loading.classList.remove('hidden');
+    modal.classList.remove('hidden');
+
+    const ext = filename.split('.').pop().toLowerCase();
+    console.log(`Preview: fileId=${fileId}, filename=${filename}, ext=${ext}`);
+
+    if (imageTypes.includes(ext)) {
+        // ── Image: serve through Flask directly ──
+        if (previewImg) {
+            previewImg.onload = () => {
+                console.log('Image loaded successfully!');
+                if (loading) loading.classList.add('hidden');
+                previewImg.classList.remove('hidden');
+            };
+            previewImg.onerror = (e) => {
+                console.error('Image load error:', e);
+                if (loading) loading.classList.add('hidden');
+                if (previewNoSupport)
+                    previewNoSupport.classList.remove('hidden');
+            };
+            // Set src AFTER setting onload/onerror
+            const previewUrl = `/preview/${fileId}`;
+            console.log(`Loading image from: ${previewUrl}`);
+            previewImg.src = previewUrl;
+        }
+
+    } else if (videoTypes.includes(ext) ||
+               audioTypes.includes(ext) ||
+               ext === 'pdf') {
+
+        // ── Video/Audio/PDF: get presigned URL ──
+        const previewUrl = `/preview/${fileId}`;
+        console.log(`Fetching preview URL from: ${previewUrl}`);
+
+        fetch(previewUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(res => {
+            console.log(`Response status: ${res.status}`);
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
+        .then(data => {
+            console.log('Preview data:', data);
+            if (loading) loading.classList.add('hidden');
+
+            if (data.error) {
+                console.error('Preview error:', data.error);
+                if (previewNoSupport)
+                    previewNoSupport.classList.remove('hidden');
+                return;
+            }
+
+            const url = data.url;
+
+            if (videoTypes.includes(ext) && previewVideo) {
+                previewVideo.src = url;
+                previewVideo.load();
+                previewVideo.classList.remove('hidden');
+
+            } else if (audioTypes.includes(ext) && previewAudio) {
+                const audioEl = previewAudio.querySelector('audio');
+                if (audioEl) {
+                    audioEl.src = url;
+                    audioEl.load();
+                }
+                previewAudio.classList.remove('hidden');
+
+            } else if (ext === 'pdf' && previewPdf) {
+                previewPdf.src = url;
+                previewPdf.classList.remove('hidden');
+
+            } else {
+                if (previewNoSupport)
+                    previewNoSupport.classList.remove('hidden');
+            }
+        })
+        .catch(err => {
+            console.error('Fetch error:', err);
+            if (loading) loading.classList.add('hidden');
+            if (previewNoSupport)
+                previewNoSupport.classList.remove('hidden');
+        });
+
+    } else {
+        // Unsupported type
+        if (loading) loading.classList.add('hidden');
+        if (previewNoSupport)
+            previewNoSupport.classList.remove('hidden');
+    }
+}
+
+function closePreview() {
+    const modal = document.getElementById('previewModal');
+    const video = document.getElementById('previewVideo');
+    const audio = document.querySelector('#previewAudio audio');
+
+    // Stop media
+    if (video) { video.pause(); video.src = ''; }
+    if (audio) { audio.pause(); audio.src = ''; }
+
+    if (modal) modal.classList.add('hidden');
+    currentPreviewId = null;
+}
+
+// Close preview when clicking outside
+document.getElementById('previewModal')
+    ?.addEventListener('click', function(e) {
+        if (e.target === this) closePreview();
+    });
+
+// ═══════════════════════════════════════
+// SHARE TOGGLE
+// ═══════════════════════════════════════
+async function toggleShare(fileId, button) {
+    button.disabled      = true;
+    button.style.opacity = '0.5';
+
+    try {
+        const res  = await fetch(`/share/${fileId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) throw new Error('Request failed');
+
+        const data = await res.json();
+        const box  = document.getElementById(`share-${fileId}`);
+        const inp  = box?.querySelector('.share-input');
+
+        if (data.shared) {
+            button.classList.add('shared-active');
+            button.title = 'Unshare';
+            if (inp) inp.value = data.share_url;
+            if (box) box.classList.remove('hidden');
+            showShareModal(data.share_url);
+        } else {
+            button.classList.remove('shared-active');
+            button.title = 'Share';
+            if (inp) inp.value = '';
+            if (box) box.classList.add('hidden');
+            showToast('File is now private', 'info');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Something went wrong', 'error');
+    } finally {
+        button.disabled      = false;
+        button.style.opacity = '1';
+    }
+}
+
+// ═══════════════════════════════════════
+// COPY LINKS
+// ═══════════════════════════════════════
+function copyShareLink(fileId) {
+    const box = document.getElementById(`share-${fileId}`);
+    const inp = box?.querySelector('.share-input');
+    if (!inp?.value) return;
+    copyText(inp.value);
+}
+
+function copyModalLink() {
+    const inp = document.getElementById('modalShareLink');
+    if (inp) copyText(inp.value);
+}
+
+function copyText(text) {
+    navigator.clipboard.writeText(text)
+        .then(() => showToast('✅ Link copied!'))
+        .catch(() => {
+            // Fallback for older browsers
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('✅ Link copied!');
+        });
+}
+
+// ═══════════════════════════════════════
+// SHARE MODAL
+// ═══════════════════════════════════════
+function showShareModal(url) {
+    const modal = document.getElementById('shareModal');
+    const inp   = document.getElementById('modalShareLink');
+    if (!modal) return;
+    if (inp) inp.value = url;
+    modal.classList.remove('hidden');
+}
+
+function closeShareModal() {
+    document.getElementById('shareModal')
+        ?.classList.add('hidden');
+}
+
+// Also support old name
+function closeModal() { closeShareModal(); }
+
+document.getElementById('shareModal')
+    ?.addEventListener('click', function(e) {
+        if (e.target === this) closeShareModal();
+    });
+
+// ═══════════════════════════════════════
+// TOAST NOTIFICATIONS
+// ═══════════════════════════════════════
+function showToast(message, type = 'success') {
+    const map = {
+        success: { cls: 'flash-success', icon: 'check-circle'       },
+        error:   { cls: 'flash-danger',  icon: 'exclamation-circle'  },
+        info:    { cls: 'flash-info',    icon: 'info-circle'          },
+    };
+    const { cls, icon } = map[type] || map.success;
+
+    const toast = document.createElement('div');
+    toast.className  = `flash ${cls}`;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+        max-width: 320px;
+    `;
+    toast.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity    = '0';
+        toast.style.transition = 'opacity 0.4s';
+        setTimeout(() => toast.remove(), 420);
+    }, 3000);
+}
+
+// ═══════════════════════════════════════
+// MOBILE SIDEBAR
+// ═══════════════════════════════════════
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar) return;
+
+    const isOpen = sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('open', isOpen);
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+}
+
+// ═══════════════════════════════════════
+// NAVBAR HAMBURGER
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    const navHamburger = document.getElementById('navHamburger');
+    const navLinksEl   = document.getElementById('navLinks');
+
+    if (!navHamburger || !navLinksEl) return;
+
+    navHamburger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navLinksEl.classList.toggle('open');
+        const icon = navHamburger.querySelector('i');
+        if (icon) {
+            icon.className = navLinksEl.classList.contains('open')
+                ? 'fas fa-times'
+                : 'fas fa-bars';
+        }
+    });
+
+    // Close when link clicked
+    navLinksEl.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            navLinksEl.classList.remove('open');
+            const icon = navHamburger.querySelector('i');
+            if (icon) icon.className = 'fas fa-bars';
+        });
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!navLinksEl.contains(e.target) &&
+            !navHamburger.contains(e.target)) {
+            navLinksEl.classList.remove('open');
+            const icon = navHamburger.querySelector('i');
+            if (icon) icon.className = 'fas fa-bars';
+        }
+    });
+});
+
+// ═══════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+
+    // Escape — close all modals
+    if (e.key === 'Escape') {
+        closePreview();
+        closeShareModal();
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (sidebar?.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            overlay?.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+    }
+
+    // Press '/' to focus search
+    if (e.key === '/' &&
+        document.activeElement.tagName !== 'INPUT' &&
+        document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        document.getElementById('searchInput')?.focus();
+    }
+});

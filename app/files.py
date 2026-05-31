@@ -332,55 +332,6 @@ def download_shared(token):
 # ═══════════════════════════════════════
 # IMAGE PREVIEW (returns signed URL)
 # ═══════════════════════════════════════
-@files.route('/preview/<int:file_id>')
-@login_required
-def preview(file_id):
-    """
-    Serve files inline for preview.
-    Images: served directly through Flask
-    Videos/PDFs/Others: redirect to presigned URL
-    """
-    file = File.query.get_or_404(file_id)
-
-    if file.user_id != current_user.id:
-        return jsonify({'error': 'Access denied'}), 403
-
-    backend = getattr(file, 'storage_backend', 'b2') or 'b2'
-    file_type = file.file_type.lower()
-
-    image_types = ['jpg','jpeg','png','gif','svg','webp']
-    video_types = ['mp4','avi','mov','mkv','webm']
-    audio_types = ['mp3','wav','flac','ogg']
-
-    if file_type in image_types:
-        # Serve image directly — no download flash
-        data = download_file(file.stored_name, backend)
-        if data:
-            from flask import Response
-            mime = file.mime_type or f'image/{file_type}'
-            return Response(
-                data,
-                mimetype=mime,
-                headers={
-                    'Content-Disposition': f'inline; filename="{file.filename}"',
-                    'Cache-Control': 'private, max-age=3600',
-                }
-            )
-        return jsonify({'error': 'File not found'}), 404
-
-    elif file_type in video_types or file_type in audio_types or file_type == 'pdf':
-        # Return presigned URL for video/audio/PDF
-        url = get_presigned_url(file.stored_name, backend, expires=3600)
-        if url:
-            return jsonify({'url': url, 'type': file_type})
-        return jsonify({'error': 'Preview not available'}), 400
-
-    else:
-        # Other file types — return presigned URL
-        url = get_presigned_url(file.stored_name, backend, expires=3600)
-        if url:
-            return jsonify({'url': url, 'type': file_type})
-        return jsonify({'error': 'Preview not available'}), 400
 
 # ═══════════════════════════════════════
 # TEST B2 CONNECTION (temporary route)
@@ -409,3 +360,78 @@ def test_b2():
         """
     except Exception as e:
         return f"<h2>⚠️ Error:</h2><p>{str(e)}</p>"
+    
+    
+    
+@files.route('/test-upload')
+@login_required
+def test_upload():
+    from app.storage import get_b2_client
+    b2 = get_b2_client()
+    return f"""
+    <h2>Upload Test</h2>
+    <p>B2 Connected: {'Yes' if b2 else 'No'}</p>
+    <p>B2 Bucket: {current_app.config.get('B2_BUCKET')}</p>
+    <p>B2 Endpoint: {current_app.config.get('B2_ENDPOINT')}</p>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <button type="submit">Test Upload</button>
+    </form>
+    """
+
+@files.route('/preview/<int:file_id>')
+@login_required
+def preview(file_id):
+    """Serve file preview"""
+    file = File.query.get_or_404(file_id)
+
+    if file.user_id != current_user.id:
+        return jsonify({'error': 'Access denied'}), 403
+
+    backend   = getattr(file, 'storage_backend', 'b2') or 'b2'
+    file_type = file.file_type.lower()
+
+    image_types = ['jpg','jpeg','png','gif','svg','webp']
+    video_types = ['mp4','avi','mov','mkv','webm']
+    audio_types = ['mp3','wav','flac','ogg']
+
+    if file_type in image_types:
+        # Serve image directly through Flask
+        data = download_file(file.stored_name, backend)
+        if data:
+            from flask import Response
+            mime = file.mime_type or f'image/{file_type}'
+            return Response(
+                data,
+                mimetype=mime,
+                headers={
+                    'Content-Disposition':
+                        f'inline; filename="{file.filename}"',
+                    'Cache-Control': 'private, max-age=3600',
+                }
+            )
+        return jsonify({'error': 'File not found'}), 404
+
+    elif file_type in video_types:
+        url = get_presigned_url(file.stored_name, backend, expires=3600)
+        if url:
+            return jsonify({'url': url, 'type': file_type})
+        return jsonify({'error': 'Could not get video URL'}), 400
+
+    elif file_type in audio_types:
+        url = get_presigned_url(file.stored_name, backend, expires=3600)
+        if url:
+            return jsonify({'url': url, 'type': file_type})
+        return jsonify({'error': 'Could not get audio URL'}), 400
+
+    elif file_type == 'pdf':
+        url = get_presigned_url(file.stored_name, backend, expires=3600)
+        if url:
+            return jsonify({'url': url, 'type': 'pdf'})
+        return jsonify({'error': 'Could not get PDF URL'}), 400
+
+    else:
+        url = get_presigned_url(file.stored_name, backend, expires=3600)
+        if url:
+            return jsonify({'url': url, 'type': file_type})
+        return jsonify({'error': 'Preview not available'}), 400

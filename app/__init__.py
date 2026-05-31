@@ -16,16 +16,15 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-
     db.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
 
-    login_manager.login_view            = 'auth.login'
-    login_manager.login_message         = 'Please login to access this page.'
+    login_manager.login_view             = 'auth.login'
+    login_manager.login_message          = 'Please login to access this page.'
     login_manager.login_message_category = 'info'
 
+    # Register blueprints
     from app.auth import auth as auth_blueprint
     app.register_blueprint(auth_blueprint)
 

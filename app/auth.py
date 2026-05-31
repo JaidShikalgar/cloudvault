@@ -107,17 +107,20 @@ def forgot_password():
 
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
+        print(f"DEBUG: Forgot password for: {email}")
 
         if not email:
-            flash('Please enter your email address.', 'danger')
+            flash('Please enter your email.', 'danger')
             return render_template('forgot_password.html')
 
         user = User.query.filter_by(email=email).first()
+        print(f"DEBUG: User found: {user}")
 
         if user:
             token = secrets.token_urlsafe(32)
             user.reset_token        = token
-            user.reset_token_expiry = datetime.utcnow() + timedelta(minutes=30)
+            user.reset_token_expiry = datetime.utcnow() + \
+                                      timedelta(minutes=30)
             db.session.commit()
 
             reset_url = url_for(
@@ -125,20 +128,19 @@ def forgot_password():
                 token=token,
                 _external=True
             )
+            print(f"DEBUG: Reset URL: {reset_url}")
 
             try:
+                print(f"DEBUG: Sending email to {user.email}...")
                 send_reset_email(user.email, user.username, reset_url)
+                print(f"DEBUG: ✅ Email sent!")
             except Exception as e:
-        # Log error but DON'T crash — show success anyway
-                print(f"Email error (non-fatal): {e}")
+                print(f"DEBUG: ❌ Email error: {e}")
 
-        # Always show success — security best practice
         flash(
-            '📧 If that email exists, a reset link has been sent! '
-            'Check your inbox and spam folder.',
+            '📧 Reset link sent! Check inbox and spam.',
             'success'
         )
-        # Redirect immediately — don't wait for email
         return redirect(url_for('auth.login'))
 
     return render_template('forgot_password.html')
@@ -382,3 +384,43 @@ If you didn't request this, ignore this email.
     except Exception as e:
         print(f"❌ SendGrid error: {e}")
         raise e
+    
+
+@auth.route('/test-sendgrid')
+def test_sendgrid():
+    """Temporary test route"""
+    try:
+        import sendgrid
+        from sendgrid.helpers.mail import Mail
+
+        api_key   = current_app.config.get('SENDGRID_API_KEY')
+        mail_from = current_app.config.get('MAIL_FROM')
+
+        print(f"DEBUG: API Key starts with: {str(api_key)[:15] if api_key else 'NOT SET'}")
+        print(f"DEBUG: Mail from: {mail_from}")
+
+        if not api_key:
+            return "❌ SENDGRID_API_KEY not set!"
+
+        if not mail_from:
+            return "❌ MAIL_FROM not set!"
+
+        sg = sendgrid.SendGridAPIClient(api_key=api_key)
+
+        message = Mail(
+            from_email=mail_from,
+            to_emails=mail_from,
+            subject='✅ CloudVault SendGrid Test',
+            html_content='<h2>SendGrid is working!</h2>'
+        )
+
+        response = sg.send(message)
+        return f"""
+        ✅ SendGrid Working!<br>
+        Status: {response.status_code}<br>
+        From: {mail_from}<br>
+        Key: {str(api_key)[:15]}...
+        """
+
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
