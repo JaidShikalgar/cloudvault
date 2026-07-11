@@ -629,3 +629,59 @@ document.addEventListener('keydown', (e) => {
         document.getElementById('searchInput')?.focus();
     }
 });
+
+// ═══════════════════════════════════════
+// SEE MORE / SEE LESS — Recent Files
+// ═══════════════════════════════════════
+let recentExpanded = false;
+
+function toggleRecentFiles() {
+    recentExpanded = !recentExpanded;
+
+    // Get all hidden cards
+    const hiddenCards = document.querySelectorAll('.recent-hidden');
+    const toggleBtn   = document.getElementById('recentToggleBtn');
+    const toggleIcon  = document.getElementById('recentToggleIcon');
+    const toggleText  = document.getElementById('recentToggleText');
+    const fullBtn     = document.getElementById('recentFullBtn');
+    const fullIcon    = document.getElementById('recentFullIcon');
+    const fullText    = document.getElementById('recentFullText');
+
+    if (recentExpanded) {
+        // Show all cards
+        hiddenCards.forEach((card, i) => {
+            card.style.display = 'block';
+            card.style.animation = `cardIn 0.3s ease ${i * 0.05}s both`;
+        });
+
+        // Update buttons
+        if (toggleBtn)  toggleBtn.classList.add('expanded');
+        if (toggleIcon) toggleIcon.className = 'fas fa-chevron-up';
+        if (toggleText) toggleText.textContent = 'See Less';
+
+        if (fullBtn)  fullBtn.classList.add('expanded');
+        if (fullIcon) fullIcon.className = 'fas fa-chevron-up';
+        if (fullText) fullText.textContent = 'See Less';
+
+    } else {
+        // Hide extra cards
+        hiddenCards.forEach(card => {
+            card.style.display = 'none';
+        });
+
+        // Update buttons
+        if (toggleBtn)  toggleBtn.classList.remove('expanded');
+        if (toggleIcon) toggleIcon.className = 'fas fa-chevron-down';
+        if (fullBtn)    fullBtn.classList.remove('expanded');
+        if (fullIcon)   fullIcon.className = 'fas fa-chevron-down';
+
+        // Count hidden cards
+        const count = hiddenCards.length;
+        if (toggleText) toggleText.textContent = 'See More';
+        if (fullText)   fullText.textContent = `See More (${count} more)`;
+
+        // Scroll back to recent section
+        document.querySelector('.recent-grid')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}

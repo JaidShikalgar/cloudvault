@@ -2301,3 +2301,97 @@ input,select,textarea{font-family:inherit}
     color: #ffffff;
 }
 
+/* ============================================================
+   SEE MORE / SEE LESS — Recent Files
+   ============================================================ */
+
+/* Hide extra cards by default */
+.recent-hidden {
+    display: none !important;
+}
+
+/* Section header with see more button */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+/* See More button — top right of section */
+.see-more-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 50px;
+    background: var(--gradient-soft);
+    border: 1px solid rgba(79,142,247,0.3);
+    color: var(--accent-blue);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.see-more-btn:hover {
+    background: rgba(79,142,247,0.2);
+    transform: translateY(-1px);
+}
+
+.see-more-btn i {
+    font-size: 0.75rem;
+    transition: transform 0.3s ease;
+}
+
+.see-more-btn.expanded i {
+    transform: rotate(180deg);
+}
+
+/* Bottom centered See More button */
+.see-more-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.see-more-full-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: 50px;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.see-more-full-btn:hover {
+    background: var(--gradient-soft);
+    border-color: rgba(79,142,247,0.3);
+    color: var(--accent-blue);
+    transform: translateY(-2px);
+}
+
+.see-more-full-btn i {
+    transition: transform 0.3s ease;
+}
+
+.see-more-full-btn.expanded i {
+    transform: rotate(180deg);
+}
+
+/* Animation for showing cards */
+.recent-card {
+    animation: cardIn 0.3s ease both;
+}
+
+@keyframes recentCardIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

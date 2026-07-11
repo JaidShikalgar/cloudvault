@@ -67,7 +67,7 @@ def dashboard():
     all_files    = query.all()
     recent_files = File.query.filter_by(user_id=current_user.id)\
                              .order_by(File.uploaded_at.desc())\
-                             .limit(6).all()
+                             .limit(12).all()
 
     # Storage — now 10GB with B2
     storage_limit_mb = current_app.config.get('STORAGE_LIMIT_MB', 10240)
