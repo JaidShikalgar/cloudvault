@@ -179,24 +179,25 @@
             </div>
         </div>
 
-        <!-- ═══ RECENT FILES ═══ -->
-        {% if recent_files and not search_query and file_type == 'all' %}
-        <div class="section">
-            <div class="section-header">
-                 <h2 class="section-heading">
-                    <i class="fas fa-clock"></i> Recent Files
-                </h2>
-                <button class="see-more-btn" id="recentToggleBtn"
-                        onclick="toggleRecentFiles()">
-                    <i class="fas fa-chevron-down" id="recentToggleIcon"></i>
-                    <span id="recentToggleText">See More</span>
-                </button>
-        </div>  
+{% if recent_files and not search_query and file_type == 'all' %}
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-heading">
+            <i class="fas fa-clock"></i> Recent Files
+        </h2>
+        {% if recent_files|length > 4 %}
+        <button class="see-more-btn" id="recentToggleBtn"
+                onclick="toggleRecentFiles()">
+            <i class="fas fa-chevron-down"></i>
+            <span>See More</span>
+        </button>
+        {% endif %}
+    </div>
 
     <div class="recent-grid" id="recentGrid">
         {% for file in recent_files %}
-        <div class="recent-card
-             {% if loop.index > 4 %}recent-hidden{% endif %}"
+        <div class="recent-card"
+             style="{% if loop.index > 4 %}display:none;{% endif %}"
              onclick="openPreview({{ file.id }}, '{{ file.filename }}')">
             <div class="recent-thumb">
                 {% if file.file_type in ['jpg','jpeg','png','gif','webp'] %}
@@ -228,10 +229,13 @@
 
     {% if recent_files|length > 4 %}
     <div class="see-more-wrapper">
-        <button class="see-more-full-btn" id="recentFullBtn"
+        <button class="see-more-full-btn"
+                id="recentFullBtn"
                 onclick="toggleRecentFiles()">
             <i class="fas fa-chevron-down" id="recentFullIcon"></i>
-            <span id="recentFullText">See More ({{ recent_files|length - 4 }} more)</span>
+            <span id="recentFullText">
+                See More ({{ recent_files|length - 4 }} more)
+            </span>
         </button>
     </div>
     {% endif %}

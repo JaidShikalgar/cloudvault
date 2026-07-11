@@ -638,50 +638,55 @@ let recentExpanded = false;
 function toggleRecentFiles() {
     recentExpanded = !recentExpanded;
 
-    // Get all hidden cards
-    const hiddenCards = document.querySelectorAll('.recent-hidden');
-    const toggleBtn   = document.getElementById('recentToggleBtn');
-    const toggleIcon  = document.getElementById('recentToggleIcon');
-    const toggleText  = document.getElementById('recentToggleText');
-    const fullBtn     = document.getElementById('recentFullBtn');
-    const fullIcon    = document.getElementById('recentFullIcon');
-    const fullText    = document.getElementById('recentFullText');
+    // Get ALL recent cards
+    const allCards  = document.querySelectorAll('#recentGrid .recent-card');
+    const fullBtn   = document.getElementById('recentFullBtn');
+    const fullIcon  = document.getElementById('recentFullIcon');
+    const fullText  = document.getElementById('recentFullText');
+    const toggleBtn = document.getElementById('recentToggleBtn');
+
+    console.log(`Total cards: ${allCards.length}, expanded: ${recentExpanded}`);
 
     if (recentExpanded) {
-        // Show all cards
-        hiddenCards.forEach((card, i) => {
-            card.style.display = 'block';
-            card.style.animation = `cardIn 0.3s ease ${i * 0.05}s both`;
+        // SHOW ALL cards
+        allCards.forEach((card, i) => {
+            card.style.display    = '';
+            card.style.animation  = `cardIn 0.3s ease ${i * 0.05}s both`;
+            card.style.opacity    = '1';
         });
 
-        // Update buttons
-        if (toggleBtn)  toggleBtn.classList.add('expanded');
-        if (toggleIcon) toggleIcon.className = 'fas fa-chevron-up';
-        if (toggleText) toggleText.textContent = 'See Less';
-
-        if (fullBtn)  fullBtn.classList.add('expanded');
-        if (fullIcon) fullIcon.className = 'fas fa-chevron-up';
+        // Update button text
         if (fullText) fullText.textContent = 'See Less';
+        if (fullIcon) fullIcon.className   = 'fas fa-chevron-up';
+        if (fullBtn)  fullBtn.classList.add('expanded');
+        if (toggleBtn) {
+            toggleBtn.classList.add('expanded');
+            toggleBtn.querySelector('span').textContent = 'See Less';
+            toggleBtn.querySelector('i').className = 'fas fa-chevron-up';
+        }
 
     } else {
-        // Hide extra cards
-        hiddenCards.forEach(card => {
-            card.style.display = 'none';
+        // HIDE cards after index 3 (show only first 4)
+        allCards.forEach((card, i) => {
+            if (i >= 4) {
+                card.style.display = 'none';
+            }
         });
 
-        // Update buttons
-        if (toggleBtn)  toggleBtn.classList.remove('expanded');
-        if (toggleIcon) toggleIcon.className = 'fas fa-chevron-down';
-        if (fullBtn)    fullBtn.classList.remove('expanded');
-        if (fullIcon)   fullIcon.className = 'fas fa-chevron-down';
+        const hiddenCount = allCards.length - 4;
 
-        // Count hidden cards
-        const count = hiddenCards.length;
-        if (toggleText) toggleText.textContent = 'See More';
-        if (fullText)   fullText.textContent = `See More (${count} more)`;
+        // Update button text
+        if (fullText) fullText.textContent = `See More (${hiddenCount} more)`;
+        if (fullIcon) fullIcon.className   = 'fas fa-chevron-down';
+        if (fullBtn)  fullBtn.classList.remove('expanded');
+        if (toggleBtn) {
+            toggleBtn.classList.remove('expanded');
+            toggleBtn.querySelector('span').textContent = 'See More';
+            toggleBtn.querySelector('i').className = 'fas fa-chevron-down';
+        }
 
-        // Scroll back to recent section
-        document.querySelector('.recent-grid')
-                ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // Scroll back to top of recent section
+        document.getElementById('recentGrid')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 }
